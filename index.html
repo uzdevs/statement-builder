@@ -45,6 +45,7 @@ td.n,th.n{text-align:right;font-family:var(--mono)}
 .who.a,.who.b{border-color:var(--grn);color:var(--grn)}
 .derr{border-color:var(--red)!important}
 .ctr{width:auto;margin-left:8px;padding:3px 5px;font-size:11px;background:#fff8e6;color:#1b1f24;border:1.5px solid #f2a33d;border-radius:5px}
+@media(max-width:700px){.ctr{padding:6px 8px;font-size:12.5px}}
 .tdel{color:var(--red);background:none;border:none;cursor:pointer;padding:2px 6px}
 /* ---- printable statement sheet ---- */
 #sheetWrap{display:none}
@@ -68,13 +69,17 @@ td.n,th.n{text-align:right;font-family:var(--mono)}
 .sh-sum p b{font-family:monospace;font-weight:700;white-space:nowrap}
 .sh-sum .big{font-size:16px;border-top:1.5px solid #b9c2cb;padding-top:7px;margin-top:3px;font-weight:800}
 .sheet h4{font-size:15px;margin:20px 0 9px;font-weight:800;padding-bottom:6px;border-bottom:2.5px solid #1b1f24}
-.sheet table{font-size:11.5px;width:100%}
+.sheet table{font-size:11.5px;width:100%;min-width:0}
 .sheet th{color:#1b1f24;background:#e7ebee;border-bottom:3px solid #1b1f24;text-transform:uppercase;font-family:Helvetica,Arial,sans-serif;font-size:10.5px;letter-spacing:.04em;font-weight:800;padding:8px 6px}
 .sheet td{border-bottom:1.5px solid #c7d0d8;color:#1b1f24;font-weight:500;padding:7px 6px}
 .sheet tr.tot td{background:#e7ebee;font-weight:800;border-bottom:none;border-top:2px solid #1b1f24}
 .sheet .mut{color:#5c6773;font-size:10px;font-weight:500}
 .sheet .neg{color:#c6392f}
 .sheet .badge{background:#eaf4fb;color:#2a6f9e;border-radius:10px;padding:1px 8px;font-size:9.5px;font-weight:700}
+.sheet .tblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.sheet .tblwrap table{min-width:640px}
+@media(max-width:700px){.sheet{padding:20px 14px}}
+@media print{.sheet .tblwrap{overflow:visible!important}}
 @page pgA4{size:A4;margin:14mm}
 @page pgLetter{size:letter;margin:0.5in}
 @page pgLegal{size:legal;margin:0.5in}
@@ -199,11 +204,11 @@ Also accepts simple lines:  LOADID | Origin | Destination | Miles | Rate"></text
 <!-- DRIVERS -->
 <div id="v-drivers" class="view noprint" style="display:none">
  <div class="card"><h2>Add driver</h2>
-  <div class="row"><div class="f"><label>Name</label><input id="d-name" placeholder="Driver Name"></div>
+  <div class="row"><div class="f"><label>Name</label><input id="d-name" placeholder="Driver name"></div>
   <div class="f"><label>Default type</label><select id="d-type"><option value="solo">Owner Operator/Solo</option><option value="team">Team</option></select></div>
   <div class="f"><label>Default %</label><input id="d-pct" type="number" value="90"></div></div>
-  <div class="row"><div class="f"><label>Address line 1</label><input id="d-a1" placeholder="123 Main St"></div>
-  <div class="f"><label>Address line 2</label><input id="d-a2" placeholder="Washington, DC 04420"></div>
+  <div class="row"><div class="f"><label>Address line 1</label><input id="d-a1" placeholder="123 Main st"></div>
+  <div class="f"><label>Address line 2</label><input id="d-a2" placeholder="New York, NY 10010"></div>
   <div class="f"><label>Opening YTD gross</label><input id="d-og" type="number" step="0.01" value="0"></div>
   <div class="f"><label>Opening YTD payout</label><input id="d-op" type="number" step="0.01" value="0"></div></div>
   <div class="btns"><button class="pri" onclick="addDriver()">Add driver</button></div>
@@ -493,10 +498,10 @@ function sheet(s,isPrev){var d=drv(s.driverId)||{name:'Driver'},co=S.co,y=ytd(s.
  '<div class="sh-sum"><div><p>YTD Gross <b>'+money(y.g)+'</b></p><p>YTD Payout <b>'+money(y.p)+'</b></p><p>YTD Net Pay <b>'+money(y.p)+'</b></p></div>'+
  '<div><p>Payroll ID <b>'+esc(s.pid||'-')+'</b></p><p>Work Period <b>'+fmtP(s)+'</b></p><p>Total Trips <b>'+s.trips.length+'</b></p></div>'+
  '<div><p>Total Trip Gross <b>'+money(s.gross)+'</b></p><p>Earning <b>'+money(s.earn)+'</b></p><p class="neg">Deductions <b>'+money(s.dedT)+'</b></p><p class="big">Payout <b>'+money(s.payout)+'</b></p></div></div>'+
- '<h4>Trips &amp; Credits</h4><table><thead><tr><th>Trips</th><th>Origin</th><th>Destination</th><th class="n">Mileage</th><th class="n">Rate (Gross)</th><th>Contract</th><th class="n">Net Amount</th></tr></thead><tbody>'+rows+
- '<tr class="tot"><td colspan="3">Totals: <span class="mut">('+miTotal.toLocaleString('en-US')+' mi completed)</span></td><td class="n">'+miTotal.toLocaleString('en-US')+'</td><td class="n">'+money(s.gross)+'</td><td></td><td class="n">'+money(s.net)+'</td></tr></tbody></table>'+
- (cr?'<table style="margin-top:16px"><thead><tr><th>Credits</th><th>Type</th><th>Date</th><th class="n">Net Amount</th></tr></thead><tbody>'+cr+'<tr class="tot"><td colspan="3">Totals:</td><td class="n">'+money(crT)+'</td></tr></tbody></table>':'')+
- (dd?'<h4>Recurring Deductions</h4><table><thead><tr><th>Description</th><th>Operation Days</th><th class="n">Charge</th></tr></thead><tbody>'+dd+'<tr class="tot"><td colspan="2">Totals:</td><td class="n">'+money(s.dedT)+'</td></tr></tbody></table>':'')+
+ '<h4>Trips &amp; Credits</h4><div class="tblwrap"><table><thead><tr><th>Trips</th><th>Origin</th><th>Destination</th><th class="n">Mileage</th><th class="n">Rate (Gross)</th><th>Contract</th><th class="n">Net Amount</th></tr></thead><tbody>'+rows+
+ '<tr class="tot"><td colspan="3">Totals: <span class="mut">('+miTotal.toLocaleString('en-US')+' mi completed)</span></td><td class="n">'+miTotal.toLocaleString('en-US')+'</td><td class="n">'+money(s.gross)+'</td><td></td><td class="n">'+money(s.net)+'</td></tr></tbody></table></div>'+
+ (cr?'<div class="tblwrap"><table style="margin-top:16px"><thead><tr><th>Credits</th><th>Type</th><th>Date</th><th class="n">Net Amount</th></tr></thead><tbody>'+cr+'<tr class="tot"><td colspan="3">Totals:</td><td class="n">'+money(crT)+'</td></tr></tbody></table></div>':'')+
+ (dd?'<h4>Recurring Deductions</h4><div class="tblwrap"><table><thead><tr><th>Description</th><th>Operation Days</th><th class="n">Charge</th></tr></thead><tbody>'+dd+'<tr class="tot"><td colspan="2">Totals:</td><td class="n">'+money(s.dedT)+'</td></tr></tbody></table></div>':'')+
  (isPrev?'<div class="mut" style="margin-top:14px">PREVIEW — not saved, YTD not updated.</div>':'')+'</div>';}
 /* ---------- history ---------- */
 function renderHist(){document.getElementById('hbody').innerHTML=S.stmts.slice().reverse().map(function(s){var d=drv(s.driverId)||{name:'—'};
