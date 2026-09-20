@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Settlement Statement Builder</title>
+<style>
+:root{--bg:#10141a;--pan:#181e26;--pan2:#1f2732;--line:#2c3644;--ink:#e8edf3;--dim:#8d99a8;--amb:#f2a33d;--grn:#5cc98f;--red:#e2665f;
+--mono:'SFMono-Regular',Consolas,Menlo,monospace;--sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);padding:18px 14px 70px;font-size:14px}
+.wrap{max-width:1000px;margin:0 auto}
+h1{font-size:19px;margin:0;letter-spacing:.02em}
+.sub{color:var(--dim);font-family:var(--mono);font-size:11px;letter-spacing:.06em;margin-top:3px}
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;border-bottom:2px solid var(--amb);padding-bottom:12px;margin-bottom:14px;flex-wrap:wrap}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.tab{background:var(--pan);border:1px solid var(--line);color:var(--dim);padding:8px 13px;border-radius:8px;cursor:pointer;font-size:13px;font-family:var(--mono)}
+.tab.on{background:var(--amb);border-color:var(--amb);color:#1a1206;font-weight:700}
+.card{background:var(--pan);border:1px solid var(--line);border-radius:11px;padding:14px;margin-bottom:14px}
+.card h2{font-size:13px;margin:0 0 12px;color:var(--amb);font-family:var(--mono);letter-spacing:.07em;text-transform:uppercase}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.f{flex:1;min-width:145px}
+.f label{display:block;font-size:10.5px;color:var(--dim);font-family:var(--mono);letter-spacing:.05em;margin-bottom:5px;text-transform:uppercase}
+input,select,textarea{width:100%;background:var(--pan2);border:1px solid var(--line);color:var(--ink);padding:9px 10px;border-radius:7px;font-size:14px;font-family:var(--sans)}
+textarea{font-family:var(--mono);font-size:12px;min-height:130px;line-height:1.5;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--amb)}
+button{background:var(--pan2);border:1px solid var(--line);color:var(--ink);padding:9px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-family:var(--sans)}
+button:hover{border-color:var(--amb)}
+button.pri{background:var(--amb);border-color:var(--amb);color:#1a1206;font-weight:700}
+button.dngr{color:var(--red)}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:left;color:var(--dim);font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;padding:7px 6px;border-bottom:1px solid var(--line)}
+td{padding:7px 6px;border-bottom:1px solid var(--line);vertical-align:middle}
+td.n,th.n{text-align:right;font-family:var(--mono)}
+.scroll{overflow-x:auto}
+.pill{font-family:var(--mono);font-size:10.5px;padding:3px 8px;border-radius:20px;border:1px solid var(--line);color:var(--dim)}
+.pill.solo{color:var(--grn);border-color:#2f5c45}.pill.team{color:var(--amb);border-color:#6b4a1c}
+.kpi{display:flex;gap:10px;flex-wrap:wrap}
+.kpi div{flex:1;min-width:120px;background:var(--pan2);border:1px solid var(--line);border-radius:9px;padding:10px}
+.kpi span{display:block;font-size:10px;color:var(--dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em}
+.kpi b{font-size:17px;font-family:var(--mono);display:block;margin-top:4px}
+.note{color:var(--dim);font-size:12px;line-height:1.55}
+.who{width:auto;min-width:92px;padding:5px 6px;font-size:12px;font-family:var(--mono)}
+.who.a,.who.b{border-color:var(--grn);color:var(--grn)}
+.derr{border-color:var(--red)!important}
+.ctr{width:auto;margin-left:8px;padding:3px 5px;font-size:11px;background:#fff8e6;color:#1b1f24;border:1.5px solid #f2a33d;border-radius:5px}
+.tdel{color:var(--red);background:none;border:none;cursor:pointer;padding:2px 6px}
+/* ---- printable statement sheet ---- */
+#sheetWrap{display:none}
+.sheet{background:#fff;color:#1b1f24;border-radius:6px;padding:36px 32px;font-family:Helvetica,Arial,sans-serif;font-size:12.5px;font-weight:500;margin-bottom:16px;-webkit-print-color-adjust:exact;print-color-adjust:exact;color-adjust:exact}
+.sheet *{-webkit-print-color-adjust:exact;print-color-adjust:exact;color-adjust:exact}
+.sheet h3{font-size:20px;margin:0 0 2px;font-weight:800;letter-spacing:-0.01em}
+.sh-top{display:flex;justify-content:space-between;gap:20px;margin-bottom:14px;padding-bottom:16px;border-bottom:3px solid #1b1f24}
+.sh-top .drv .addr{font-size:14px;color:#3a444e;font-weight:500;line-height:1.4;margin-top:2px}
+.sh-type{display:block;margin-top:5px;font-size:13px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#1b1f24}
+.sh-truck{font-size:14px;font-weight:700;margin-top:8px;color:#3a444e}
+.sh-truck .tbadge{background:#eaf4fb;color:#2a6f9e;border-radius:6px;padding:2px 10px;font-size:16px;font-weight:800}
+.sh-top .co{text-align:right;display:flex;align-items:center;gap:16px;justify-content:flex-end}
+.sh-top .co .co-text{text-align:right}
+.sh-top .co img{height:64px;width:64px;object-fit:contain;flex-shrink:0}
+.sh-top .co b{font-size:15px;font-weight:800;display:block;letter-spacing:-0.01em}
+.sh-top .co .addr{font-size:14px;color:#3a444e;font-weight:500;line-height:1.4}
+.sh-sum{display:flex;gap:0;border-top:2px solid #1b1f24;border-bottom:2px solid #1b1f24;padding:13px 0;margin-bottom:24px}
+.sh-sum>div{flex:1;padding:0 16px;border-right:1.5px solid #b9c2cb}
+.sh-sum>div:last-child{border-right:none}
+.sh-sum p{display:flex;justify-content:space-between;margin:0 0 6px;gap:12px;font-weight:600}
+.sh-sum p b{font-family:monospace;font-weight:700;white-space:nowrap}
+.sh-sum .big{font-size:16px;border-top:1.5px solid #b9c2cb;padding-top:7px;margin-top:3px;font-weight:800}
+.sheet h4{font-size:15px;margin:20px 0 9px;font-weight:800;padding-bottom:6px;border-bottom:2.5px solid #1b1f24}
+.sheet table{font-size:11.5px;width:100%}
+.sheet th{color:#1b1f24;background:#e7ebee;border-bottom:3px solid #1b1f24;text-transform:uppercase;font-family:Helvetica,Arial,sans-serif;font-size:10.5px;letter-spacing:.04em;font-weight:800;padding:8px 6px}
+.sheet td{border-bottom:1.5px solid #c7d0d8;color:#1b1f24;font-weight:500;padding:7px 6px}
+.sheet tr.tot td{background:#e7ebee;font-weight:800;border-bottom:none;border-top:2px solid #1b1f24}
+.sheet .mut{color:#5c6773;font-size:10px;font-weight:500}
+.sheet .neg{color:#c6392f}
+.sheet .badge{background:#eaf4fb;color:#2a6f9e;border-radius:10px;padding:1px 8px;font-size:9.5px;font-weight:700}
+@page pgA4{size:A4;margin:14mm}
+@page pgLetter{size:letter;margin:0.5in}
+@page pgLegal{size:legal;margin:0.5in}
+@media print{
+html,body{background:#fff!important;padding:0!important;margin:0!important}
+.noprint{display:none!important}
+.wrap{max-width:none!important}
+#sheetWrap{display:block}
+.sheet{--u:1;margin:0 auto!important;padding:0!important;border-radius:0!important;width:100%!important;min-height:0!important;
+ font-size:calc(11px*var(--u))!important;page-break-after:always;break-after:page;page-break-inside:avoid;break-inside:avoid;overflow:hidden;display:block}
+.sheet *{break-inside:avoid!important;page-break-inside:avoid!important;break-before:avoid!important;page-break-before:avoid!important}
+.sheet:last-child{page-break-after:auto;break-after:auto}
+.sheet h3{font-size:calc(16px*var(--u))!important;margin:0 0 calc(1px*var(--u))!important}
+.sh-top{margin-bottom:calc(8px*var(--u))!important;padding-bottom:calc(9px*var(--u))!important;border-bottom-width:calc(2px*var(--u))!important;gap:calc(14px*var(--u))!important}
+.sh-top .drv .addr,.sh-top .co .addr{font-size:calc(10.5px*var(--u))!important;line-height:1.3!important;margin-top:0!important}
+.sh-top .co{gap:calc(10px*var(--u))!important}
+.sh-top .co b{font-size:calc(12px*var(--u))!important}
+.sh-top .co img{height:calc(44px*var(--u))!important;width:calc(44px*var(--u))!important}
+.sh-type{font-size:calc(10.5px*var(--u))!important;margin-top:calc(3px*var(--u))!important}
+.sh-truck{font-size:calc(11px*var(--u))!important;margin-top:calc(4px*var(--u))!important}
+.sh-truck .tbadge{font-size:calc(12px*var(--u))!important;padding:0 calc(7px*var(--u))!important}
+.sh-sum{padding:calc(7px*var(--u)) 0!important;margin-bottom:calc(9px*var(--u))!important;border-top-width:calc(1.5px*var(--u))!important;border-bottom-width:calc(1.5px*var(--u))!important;page-break-inside:avoid}
+.sh-sum>div{padding:0 calc(10px*var(--u))!important}
+.sh-sum p{margin:0 0 calc(3px*var(--u))!important;font-size:calc(10.5px*var(--u))!important}
+.sh-sum .big{font-size:calc(13px*var(--u))!important;padding-top:calc(4px*var(--u))!important;margin-top:calc(2px*var(--u))!important}
+.sh-sum p{white-space:nowrap!important}
+.sh-sum>div:nth-child(2){flex:1.6!important}
+.sheet h4{font-size:calc(12px*var(--u))!important;margin:calc(9px*var(--u)) 0 calc(4px*var(--u))!important;padding-bottom:calc(3px*var(--u))!important;border-bottom-width:calc(1.5px*var(--u))!important;page-break-after:avoid}
+.sheet table{font-size:calc(10px*var(--u))!important;page-break-inside:avoid;break-inside:avoid}
+.sheet th{font-size:calc(9px*var(--u))!important;padding:calc(4px*var(--u)) calc(5px*var(--u))!important;border-bottom-width:calc(2px*var(--u))!important}
+.sheet td{padding:calc(4px*var(--u)) calc(5px*var(--u))!important;border-bottom-width:1px!important}
+.sheet .mut{font-size:calc(8.5px*var(--u))!important}
+.sheet tr{page-break-inside:avoid;break-inside:avoid}
+.sheet thead{display:table-header-group}
+.sheet tr.tot td{border-top-width:calc(1.5px*var(--u))!important}
+.sheet .badge{font-size:calc(8.5px*var(--u))!important}
+.sheet select,.sheet .ctr{display:none!important}
+.sheet table+table{margin-top:calc(7px*var(--u))!important}
+}
+#sheets .sheet.measure{--u:1;font-size:calc(11px*var(--u))!important;padding:0!important;overflow:visible!important}
+#sheets .sheet.measure h3{font-size:calc(16px*var(--u))!important;margin:0 0 calc(1px*var(--u))!important}
+#sheets .sheet.measure .sh-top{margin-bottom:calc(8px*var(--u))!important;padding-bottom:calc(9px*var(--u))!important;border-bottom-width:calc(2px*var(--u))!important;gap:calc(14px*var(--u))!important}
+#sheets .sheet.measure .sh-top .drv .addr,.sh-top .co .addr{font-size:calc(10.5px*var(--u))!important;line-height:1.3!important;margin-top:0!important}
+#sheets .sheet.measure .sh-top .co{gap:calc(10px*var(--u))!important}
+#sheets .sheet.measure .sh-top .co b{font-size:calc(12px*var(--u))!important}
+#sheets .sheet.measure .sh-top .co img{height:calc(44px*var(--u))!important;width:calc(44px*var(--u))!important}
+#sheets .sheet.measure .sh-type{font-size:calc(10.5px*var(--u))!important;margin-top:calc(3px*var(--u))!important}
+#sheets .sheet.measure .sh-truck{font-size:calc(11px*var(--u))!important;margin-top:calc(4px*var(--u))!important}
+#sheets .sheet.measure .sh-truck .tbadge{font-size:calc(12px*var(--u))!important;padding:0 calc(7px*var(--u))!important}
+#sheets .sheet.measure .sh-sum{padding:calc(7px*var(--u)) 0!important;margin-bottom:calc(9px*var(--u))!important;border-top-width:calc(1.5px*var(--u))!important;border-bottom-width:calc(1.5px*var(--u))!important;page-break-inside:avoid}
+#sheets .sheet.measure .sh-sum>div{padding:0 calc(10px*var(--u))!important}
+#sheets .sheet.measure .sh-sum p{margin:0 0 calc(3px*var(--u))!important;font-size:calc(10.5px*var(--u))!important}
+#sheets .sheet.measure .sh-sum .big{font-size:calc(13px*var(--u))!important;padding-top:calc(4px*var(--u))!important;margin-top:calc(2px*var(--u))!important}
+#sheets .sheet.measure .sh-sum p{white-space:nowrap!important}
+#sheets .sheet.measure .sh-sum>div:nth-child(2){flex:1.6!important}
+#sheets .sheet.measure h4{font-size:calc(12px*var(--u))!important;margin:calc(9px*var(--u)) 0 calc(4px*var(--u))!important;padding-bottom:calc(3px*var(--u))!important;border-bottom-width:calc(1.5px*var(--u))!important;page-break-after:avoid}
+#sheets .sheet.measure table{font-size:calc(10px*var(--u))!important;page-break-inside:avoid;break-inside:avoid}
+#sheets .sheet.measure th{font-size:calc(9px*var(--u))!important;padding:calc(4px*var(--u)) calc(5px*var(--u))!important;border-bottom-width:calc(2px*var(--u))!important}
+#sheets .sheet.measure td{padding:calc(4px*var(--u)) calc(5px*var(--u))!important;border-bottom-width:1px!important}
+#sheets .sheet.measure .mut{font-size:calc(8.5px*var(--u))!important}
+#sheets .sheet.measure tr{page-break-inside:avoid;break-inside:avoid}
+#sheets .sheet.measure thead{display:table-header-group}
+#sheets .sheet.measure tr.tot td{border-top-width:calc(1.5px*var(--u))!important}
+#sheets .sheet.measure .badge{font-size:calc(8.5px*var(--u))!important}
+#sheets .sheet.measure select,#sheets .sheet.measure .ctr{display:none!important}
+#sheets .sheet.measure table+table{margin-top:calc(7px*var(--u))!important}
+@media (prefers-color-scheme:light){:root:not([data-theme="light"]){}}
+</style></head>
+<body>
+<div class="wrap">
+<div class="top noprint"><div><h1>Settlement Statement Builder</h1><div class="sub" id="coTag">SET UP YOUR COMPANY IN SETTINGS</div></div>
+<div class="btns"><button onclick="backup()">Backup JSON</button><button onclick="document.getElementById('imp').click()">Restore</button><input id="imp" type="file" accept=".json" style="display:none" onchange="restore(this)"></div></div>
+
+<div class="tabs noprint">
+<div class="tab on" data-v="build" onclick="go('build')">New Statement</div>
+<div class="tab" data-v="drivers" onclick="go('drivers')">Drivers &amp; YTD</div>
+<div class="tab" data-v="hist" onclick="go('hist')">History</div>
+<div class="tab" data-v="set" onclick="go('set')">Settings</div>
+</div>
+
+<!-- BUILD -->
+<div id="v-build" class="view noprint">
+ <div class="card"><h2>1 · Period &amp; truck</h2>
+  <div class="row">
+   <div class="f"><label>Payroll ID</label><input id="b-pid" placeholder="2026-14" oninput="this.dataset.auto='0'"></div>
+   <div class="f"><label>Week start</label><input id="b-start" type="date" onchange="onStart()"></div>
+   <div class="f"><label>Week end</label><input id="b-end" type="date" onchange="onEnd()"></div>
+   <div class="f"><label>Truck #</label><input id="b-truck" placeholder="26"></div>
+  </div>
+  <div id="dateErr" style="display:none;color:var(--red);font-size:12.5px;font-weight:600;margin:-2px 0 10px"></div>
+  <div class="row">
+   <div class="f"><label>Pay type</label><select id="b-type" onchange="typeChg()"><option value="solo">Solo — 90%</option><option value="team">Team — 50% / 50%</option></select></div>
+   <div class="f"><label>Driver A</label><select id="b-d1" onchange="calc()"></select></div>
+   <div class="f" id="d2wrap" style="display:none"><label>Driver B</label><select id="b-d2" onchange="calc()"></select></div>
+   <div class="f"><label>Percent each</label><input id="b-pct" type="number" step="0.01" value="90" oninput="calc()"></div>
+  </div>
+ </div>
+
+ <div class="card"><h2>2 · Trips</h2>
+  <textarea id="b-raw" placeholder="Paste Amazon Relay / load-board rows here, or add trips manually below.
+Also accepts simple lines:  LOADID | Origin | Destination | Miles | Rate"></textarea>
+  <div class="btns"><button class="pri" onclick="parseRaw()">Parse pasted trips</button><button onclick="addTrip()">+ Add trip row</button><button onclick="TRIPS=[];document.getElementById('parseMsg').textContent='';calc()">Clear trips</button></div>
+  <div class="note" id="parseMsg" style="margin-top:8px"></div>
+    
+  <div class="scroll" style="margin-top:12px"><table><thead><tr><th>#</th><th>Load ID</th><th>Origin</th><th>Destination</th><th class="n">Miles</th><th class="n">Gross</th><th class="n">Net @%</th><th></th></tr></thead><tbody id="tbody"></tbody><tfoot id="tfoot"></tfoot></table></div>
+ </div>
+
+ <div class="card"><h2>3 · Credits &amp; deductions</h2>
+  <div class="row"><div class="f" style="max-width:220px"><label>Fuel (this week)</label><input id="b-fuel" type="number" step="0.01" placeholder="0.00" oninput="calc()"></div></div>
+  <div class="row"><div class="f"><label>Credits (Description | Date | Amount — one per line)</label><textarea id="b-cred" style="min-height:70px" oninput="calc()" placeholder="BONUS FOR NO VIOLATION | 03/29/2026 | 500"></textarea></div>
+  <div class="f"><label>Deductions (Description | Days | Amount)</label><textarea id="b-ded" style="min-height:70px" oninput="calc()"></textarea></div></div>
+  <div class="note">Deductions load from Settings each time. On a team statement, credits and deductions entered here apply to <b>each</b> driver's statement unless you edit one after generating.</div>
+ </div>
+
+ <div class="card"><h2>4 · Totals</h2>
+  <div class="kpi"><div><span>Trip gross</span><b id="k-gross">$0.00</b></div><div><span>Earning</span><b id="k-earn">$0.00</b></div><div><span>Deductions</span><b id="k-ded">$0.00</b></div><div><span>Payout</span><b id="k-pay" style="color:var(--grn)">$0.00</b></div></div>
+  <div class="note" id="kpiNote" style="margin-top:8px"></div>
+  <div class="btns" style="margin-top:12px"><button class="pri" onclick="generate()">Generate &amp; save statement(s)</button><button onclick="preview()">Preview only</button></div>
+ </div>
+</div>
+
+<!-- DRIVERS -->
+<div id="v-drivers" class="view noprint" style="display:none">
+ <div class="card"><h2>Add driver</h2>
+  <div class="row"><div class="f"><label>Name</label><input id="d-name" placeholder="Inomjon Pochoev"></div>
+  <div class="f"><label>Default type</label><select id="d-type"><option value="solo">Owner Operator/Solo</option><option value="team">Team</option></select></div>
+  <div class="f"><label>Default %</label><input id="d-pct" type="number" value="90"></div></div>
+  <div class="row"><div class="f"><label>Address line 1</label><input id="d-a1" placeholder="13-21 6TH ST FL 2"></div>
+  <div class="f"><label>Address line 2</label><input id="d-a2" placeholder="Fair Lawn, NJ 07410"></div>
+  <div class="f"><label>Opening YTD gross</label><input id="d-og" type="number" step="0.01" value="0"></div>
+  <div class="f"><label>Opening YTD payout</label><input id="d-op" type="number" step="0.01" value="0"></div></div>
+  <div class="btns"><button class="pri" onclick="addDriver()">Add driver</button></div>
+ </div>
+ <div class="card"><h2>Drivers — lifetime totals</h2><div class="scroll"><table><thead><tr><th>Driver</th><th>Type</th><th class="n">%</th><th class="n">Statements</th><th class="n">YTD gross</th><th class="n">YTD payout</th><th class="n">YTD net pay</th><th></th></tr></thead><tbody id="dbody"></tbody></table></div></div>
+</div>
+
+<!-- HISTORY -->
+<div id="v-hist" class="view noprint" style="display:none">
+ <div class="card"><h2>Saved statements</h2><div class="scroll"><table><thead><tr><th>Payroll ID</th><th>Driver</th><th>Period</th><th class="n">Trips</th><th class="n">Gross</th><th class="n">Payout</th><th></th></tr></thead><tbody id="hbody"></tbody></table></div></div>
+</div>
+
+<!-- SETTINGS -->
+<div id="v-set" class="view noprint" style="display:none">
+ <div class="card"><h2>Company</h2>
+  <div class="row"><div class="f"><label>Company name</label><input id="c-name" placeholder="FASTLANE TRANS INC"></div><div class="f"><label>Phone</label><input id="c-phone"></div></div>
+  <div class="row"><div class="f"><label>Company logo</label><input id="c-logo" type="file" accept="image/*" onchange="pickLogo(this)"><div id="logoPrev" style="margin-top:8px"></div></div></div>
+  <div class="row"><div class="f"><label>Address line 1</label><input id="c-a1"></div><div class="f"><label>Address line 2</label><input id="c-a2"></div></div>
+  <div class="row"><div class="f"><label>Default solo %</label><input id="c-solo" type="number" value="90"></div><div class="f"><label>Default team % each</label><input id="c-team" type="number" value="50"></div><div class="f"><label>Dispatch fee (% of gross)</label><input id="c-dispatch" type="number" step="0.01" value="10"></div></div>
+  <div class="row"><div class="f"><label>Standard recurring deductions (Description | Days | Amount)</label><textarea id="c-ded" style="min-height:100px">Cargo &amp; Liability | 7 days | 450
+ELD Device Fee | 7 days | 50
+IFTA Fee | 7 days | 50
+Trailer Charge | 7 days | 300</textarea></div></div>
+  <div class="btns"><button class="pri" onclick="saveSet()">Save settings</button><button class="dngr" onclick="wipe()">Erase all data</button></div>
+  <div class="card" style="margin:16px 0 0;background:var(--pan2)"><h2>Google Sheets</h2>
+   <div class="row"><div class="f" style="flex:2;min-width:240px"><label>Web app URL (Apps Script)</label><input id="g-url" placeholder="https://script.google.com/macros/s/.../exec"></div>
+   <div class="f"><label>Secret (parol)</label><input id="g-sec" type="password" placeholder="Apps Script dagi SECRET"></div></div>
+   <div class="btns"><button class="pri" onclick="saveG()">Save Google Sheets</button><button onclick="testG()">Test connection</button></div>
+   <div class="note" id="g-msg" style="margin-top:8px"></div>
+   <div class="note" style="margin-top:6px">O'rnatish: <b>google-apps-script.gs</b> faylidagi qadamlarga qarang (5 daqiqa, bir marta).</div>
+  </div>
+  <div class="note" style="margin-top:10px">Everything is stored in this browser. Use <b>Backup JSON</b> weekly so your YTD history is never lost.</div>
+ </div>
+</div>
+
+<div id="sheetWrap"><div class="btns noprint" style="margin-bottom:12px">
+<select id="pgsize" onchange="applyPageSize()" style="width:auto"><option value="pgLetter">Letter (8.5×11)</option><option value="pgLegal">Legal (8.5×14)</option><option value="pgA4">A4</option></select>
+<button class="pri" id="saveBtn" onclick="saveDraft()" style="display:none">💾 Save statement(s)</button><button class="pri" onclick="window.print()">Print / Save as PDF</button><button class="pri" id="gsBtn" onclick="sendSheets()" style="background:var(--grn);border-color:var(--grn)">📊 Send to Google Sheets</button><button onclick="closeSheet()">Back</button></div><div id="editHint" class="note noprint" style="display:none;margin-bottom:10px;padding:9px;border:1px dashed var(--amb);border-radius:8px">✏️ <b>Contract</b> ustunidagi ro'yxatdan trip'ni <b>100% Solo</b> qilib tanlang. U faqat o'sha driver statement'ida qoladi, ikkinchisidan chiqib ketadi. Tayyor bo'lgach <b>Save</b> bosing.</div><div id="gsMsg" class="note noprint" style="margin-bottom:10px"></div><div id="sheets"></div></div>
+</div>
+
+<script>
+var KEY='fl_stmt_v1', S={co:{},drivers:[],stmts:[],ded:''}, TRIPS=[], VIEW='build';
+function money(n){return '$'+(Math.round((n||0)*100)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function esc(s){return (s==null?'':''+s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function load(){try{var r=localStorage.getItem(KEY);if(r)S=JSON.parse(r);}catch(e){}
+ S.co=S.co||{};S.drivers=S.drivers||[];S.stmts=S.stmts||[];}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){alert('Could not save locally — export a JSON backup.');}}
+function go(v){VIEW=v;['build','drivers','hist','set'].forEach(function(x){document.getElementById('v-'+x).style.display=x===v?'block':'none';});
+ [].forEach.call(document.querySelectorAll('.tab'),function(t){t.classList.toggle('on',t.dataset.v===v);});
+ closeSheet();if(v==='drivers')renderDrivers();if(v==='hist')renderHist();}
+/* ---------- settings ---------- */
+function saveSet(){var logo=(S.co&&S.co.logo)||'';
+ S.co={name:val('c-name'),phone:val('c-phone'),a1:val('c-a1'),a2:val('c-a2'),solo:+val('c-solo')||90,team:+val('c-team')||50,dispatch:+val('c-dispatch')||0,logo:logo};
+ S.ded=val('c-ded');save();fillSet();document.getElementById('b-ded').value=S.ded;calc();alert('Settings saved.');}
+function val(id){return document.getElementById(id).value.trim();}
+function pickLogo(inp){var f=inp.files[0];if(!f)return;
+ if(f.size>800000){alert('Please pick a smaller image (under ~800KB) so statements stay light to print/PDF.');inp.value='';return;}
+ var r=new FileReader();r.onload=function(){S.co=S.co||{};S.co.logo=r.result;save();fillSet();};r.readAsDataURL(f);}
+function removeLogo(){S.co=S.co||{};S.co.logo='';save();fillSet();}
+function fillSet(){var c=S.co;['name','phone','a1','a2'].forEach(function(k){document.getElementById('c-'+k).value=c[k]||'';});
+ document.getElementById('c-solo').value=c.solo||90;document.getElementById('c-team').value=c.team||50;
+ document.getElementById('c-dispatch').value=(c.dispatch!=null?c.dispatch:10);
+ if(S.ded)document.getElementById('c-ded').value=S.ded;
+ document.getElementById('coTag').textContent=(c.name||'SET UP YOUR COMPANY IN SETTINGS').toUpperCase();
+ document.getElementById('logoPrev').innerHTML=c.logo?('<img src="'+c.logo+'" style="height:48px;border-radius:6px;border:1px solid var(--line);display:block;margin-bottom:6px"><button onclick="removeLogo()">Remove logo</button>'):'<span class="note">No logo uploaded — statements will show the company name only.</span>';}
+function wipe(){if(confirm('Erase all drivers, statements and settings from this browser?')){localStorage.removeItem(KEY);location.reload();}}
+/* ---------- drivers ---------- */
+function addDriver(){var n=val('d-name');if(!n)return alert('Enter a name.');
+ S.drivers.push({id:'d'+Date.now(),name:n,type:val('d-type'),pct:+val('d-pct')||90,a1:val('d-a1'),a2:val('d-a2'),og:+val('d-og')||0,op:+val('d-op')||0});
+ save();['d-name','d-a1','d-a2'].forEach(function(i){document.getElementById(i).value='';});renderDrivers();fillDriverSelects();}
+function delDriver(id){if(!confirm('Remove this driver? Their saved statements stay in History.'))return;
+ S.drivers=S.drivers.filter(function(d){return d.id!==id;});save();renderDrivers();fillDriverSelects();}
+function ytd(id){var d=drv(id),g=d?d.og:0,p=d?d.op:0,c=0;
+ S.stmts.forEach(function(s){if(s.driverId===id){g+=s.gross;p+=s.payout;c++;}});return{g:g,p:p,c:c};}
+function drv(id){return S.drivers.filter(function(d){return d.id===id;})[0];}
+function renderDrivers(){document.getElementById('dbody').innerHTML=S.drivers.map(function(d){var y=ytd(d.id);
+ return '<tr><td><b>'+esc(d.name)+'</b><div class="note">'+esc(d.a1||'')+' '+esc(d.a2||'')+'</div></td><td><span class="pill '+d.type+'">'+d.type+'</span></td><td class="n">'+d.pct+'%</td><td class="n">'+y.c+'</td><td class="n">'+money(y.g)+'</td><td class="n">'+money(y.p)+'</td><td class="n">'+money(y.p)+'</td><td><button class="tdel" onclick="delDriver(\''+d.id+'\')">✕</button></td></tr>';}).join('')||'<tr><td colspan="8" class="note">No drivers yet.</td></tr>';}
+function fillDriverSelects(){var o=S.drivers.map(function(d){return '<option value="'+d.id+'">'+esc(d.name)+'</option>';}).join('');
+ document.getElementById('b-d1').innerHTML=o;document.getElementById('b-d2').innerHTML='<option value="">— none —</option>'+o;}
+/* ---------- build ---------- */
+function typeChg(){var t=document.getElementById('b-type').value;if(t!=='team')TRIPS.forEach(function(x){x.who='team';});
+ document.getElementById('d2wrap').style.display=t==='team'?'block':'none';
+ document.getElementById('b-pct').value=t==='team'?(S.co.team||50):(S.co.solo||90);calc();}
+function iso(d){return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);}
+function validYear(str){var p=(str||'').split('-');return p.length===3&&+p[0]>=2000&&+p[0]<=2100;}
+var PID_AUTO=true;   // payroll id auto-updates until the user types their own
+function onStart(){
+ var sEl=document.getElementById('b-start'),eEl=document.getElementById('b-end'),s=sEl.value;
+ sEl.classList.remove('derr');eEl.classList.remove('derr');
+ if(!s)return;
+ if(!validYear(s)){sEl.classList.add('derr');eEl.value='';
+  var em=document.getElementById('dateErr');if(em){em.style.display='block';em.textContent='⚠ Week start yili noto\'g\'ri: '+s.split('-').reverse().join('.')+' — yilni to\'g\'ri kiriting (masalan 2026).';}return;}
+ var d=new Date(s+'T00:00:00');
+ // start -> end automatically = start + 6 days (7-day week)
+ eEl.value=iso(new Date(d.getFullYear(),d.getMonth(),d.getDate()+6));
+ // payroll id (only if the user did not type their own)
+ var y=d.getFullYear(),w=Math.ceil(((d-new Date(y,0,1))/864e5+new Date(y,0,1).getDay()+1)/7),pid=document.getElementById('b-pid');
+ if(!pid.value.trim()||pid.dataset.auto==='1'){pid.value=y+'-'+(w<10?'0'+w:w);pid.dataset.auto='1';}
+ chkDates(true);}
+function onEnd(){chkDates(true);}
+
+/* ---------- date validation ---------- */
+function chkDates(quiet){
+ var sEl=document.getElementById('b-start'),eEl=document.getElementById('b-end'),s=sEl.value,e=eEl.value,err='';
+ sEl.classList.remove('derr');eEl.classList.remove('derr');
+ function fm(d){var p=d.split('-');return p[1]+'.'+p[2]+'.'+p[0];}
+ if(!s||!e){err='Week start va Week end sanalarini kiriting.';
+  if(!s)sEl.classList.add('derr');if(!e)eEl.classList.add('derr');}
+ else{
+  var a=new Date(s+'T00:00:00'),b=new Date(e+'T00:00:00');
+  if(isNaN(a)||isNaN(b)||a.getFullYear()<2000||b.getFullYear()<2000||a.getFullYear()>2100||b.getFullYear()>2100){err='Sana noto\'g\'ri kiritilgan.';sEl.classList.add('derr');eEl.classList.add('derr');}
+  else if(a.getFullYear()!==b.getFullYear()&&!(a.getMonth()===11&&b.getMonth()===0&&(b-a)/864e5<=13)){
+   err='Yil mos kelmayapti: '+fm(s)+' – '+fm(e)+'\nBoshlanish va tugash yili har xil. Yilni tuzating.';sEl.classList.add('derr');eEl.classList.add('derr');}
+  else if(b<a){err='Week end ('+fm(e)+') Week start ('+fm(s)+') dan oldin bo\'lishi mumkin emas.';eEl.classList.add('derr');}
+  else{var days=Math.round((b-a)/864e5)+1;
+   if(days>7){err='Davr '+days+' kun bo\'lib qolgan ('+fm(s)+' – '+fm(e)+').\nSettlement haftasi 7 kundan oshmasligi kerak.';eEl.classList.add('derr');}}
+ }
+ if(quiet&&(!s||!e))err='';
+ var em=document.getElementById('dateErr');if(em){em.style.display=err?'block':'none';em.textContent=err?('⚠ '+err.replace(/\n/g,' ')):'';}
+ if(err&&!quiet)alert('⚠ SANA XATO\n\n'+err+'\n\nTuzatib, qayta Generate qiling.');
+ return !err;}
+function whoCounts(){var c={team:0,a:0,b:0};TRIPS.forEach(function(t){if(t.st==='Canceled'&&!t.rate)return;c[t.who==='a'?'a':t.who==='b'?'b':'team']++;});return c;}
+function addTrip(){TRIPS.push({id:'',o:'',d:'',mi:0,rate:0,who:'team'});calc();}
+function editTrip(i,f,v){TRIPS[i][f]=(f==='rate'||f==='mi')?(parseFloat((v+'').replace(/[^0-9.\-]/g,''))||0):v;calc();}
+function delTrip(i){TRIPS.splice(i,1);calc();}
+function parseRaw(){var raw=document.getElementById('b-raw').value;if(!raw.trim())return alert('Paste trip rows first.');
+ raw=raw.replace(/data:[a-z0-9.+-]*\/[a-z0-9.+-]*;[^,\n]*,/gi,' ').replace(/data:[^,\n]*,/gi,' ');
+ var out=[],lines=raw.split(/\n/);
+ lines.forEach(function(l){if(l.indexOf('|')>-1){var p=l.split('|').map(function(x){return x.trim();});
+  if(p.length>=3)out.push({id:p[0],o:p[1],d:p[2],mi:parseFloat(p[3])||0,rate:parseFloat((p[4]||'').replace(/[^0-9.]/g,''))||0});}});
+ if(!out.length){var t=raw.replace(/\s+/g,' ').trim(),rx=/((?:T-)?\d{2,4}[A-Z0-9]{5,9})\s+Spot\s+\d+\s+/g,m=Array.from(t.matchAll(rx));
+  for(var i=0;i<m.length;i++){var ch=t.slice(m[i].index,i+1<m.length?m[i+1].index:t.length),
+   dr=/[A-Z][a-z]{2}, [A-Z][a-z]{2} \d{1,2}, \d{1,2}:\d{2} [A-Z]{2,4}/g,pt=ch.split(dr),rest=pt[2]||'',
+   mi=(rest.match(/(\d+)\s*mi\b/)||[])[1],ra=(rest.match(/\$([\d,]+(?:\.\d{2})?)(?!\/)(?!\d)/)||[])[1];
+   var dv=(rest.match(/([A-Z]\.\s?[A-Z][a-zA-Z'-]+(?:\s*,\s*[A-Z]\.\s?[A-Z][a-zA-Z'-]+)*)\s+\d+\/\d+\s+Loads/)||[])[1]||'';
+   out.push({id:m[i][1],o:(pt[0]||'').replace(m[i][1],'').replace(/Spot\s+\d+/,'').trim(),
+    d:(pt[1]||'').replace(/^[^A-Za-z0-9]*\d+\s*/,'').trim(),mi:parseInt(mi||0,10),rate:parseFloat((ra||'0').replace(/,/g,'')),
+    st:(!ra&&/Canceled/i.test(ch))?'Canceled':'Completed',dr:dv.replace(/\s*,\s*/g,', ')});}}
+ if(!out.length)return alert('No trips recognised. Use: LOADID | Origin | Destination | Miles | Rate');
+ out.forEach(function(o){o.who='team';});TRIPS=TRIPS.concat(out);
+ var cx=out.filter(function(t){return t.st==='Canceled';}).length,
+  tm=out.filter(function(t){return (t.dr||'').indexOf(',')>-1;}).length,msg=[];
+ msg.push(out.length+' trips parsed');
+ if(cx)msg.push(cx+' canceled (kept at $0 — type a TONU amount in the Gross cell if Relay paid one)');
+ if(tm)msg.push(tm+' load(s) show two drivers — switch Pay type to Team if this week was run as a team');
+ document.getElementById('parseMsg').innerHTML=msg.join(' · ');
+ calc();}
+function parseLines(txt){return (txt||'').split(/\n/).map(function(l){var p=l.split('|').map(function(x){return x.trim();});
+ return p.length<2?null:{d:p[0],m:p[1],a:parseFloat((p[2]||p[1]||'').replace(/[^0-9.\-]/g,''))||0};}).filter(Boolean);}
+function calc(){
+ document.getElementById('tbody').innerHTML=TRIPS.map(function(t,i){var pct=(+val('b-pct')||0)/100;
+  return '<tr><td>'+(i+1)+(t.st==='Canceled'?'<div style="color:var(--red);font-size:9.5px;font-family:var(--mono)">CXL</div>':'')+(t.dr?'<div style="color:var(--dim);font-size:9.5px">'+esc(t.dr)+'</div>':'')+'</td>'+
+  ce(i,'id',t.id)+ce(i,'o',t.o)+ce(i,'d',t.d)+
+  '<td class="n" contenteditable oninput="editTrip('+i+',\'mi\',this.innerText)">'+(t.mi||0)+'</td>'+
+  '<td class="n" contenteditable oninput="editTrip('+i+',\'rate\',this.innerText)">'+money(t.rate)+'</td>'+
+  '<td class="n" style="color:var(--grn)">'+money(t.rate*pct)+'</td>'+
+  '<td><button class="tdel" onclick="delTrip('+i+')">✕</button></td></tr>';}).join('')||'<tr><td colspan="8" class="note">No trips yet.</td></tr>';
+ var miTotal=TRIPS.reduce(function(a,t){return a+(t.st==='Canceled'?0:(t.mi||0));},0);
+ document.getElementById('tfoot').innerHTML=TRIPS.length?('<tr class="n" style="font-weight:700;border-top:2px solid var(--line)"><td colspan="4">Totals (completed)</td><td class="n">'+miTotal.toLocaleString('en-US')+' mi</td><td colspan="3"></td></tr>'):'';
+ var t=totals(),isTeam=document.getElementById('b-type').value==='team',pctv=(+val('b-pct')||0)/100;
+ document.getElementById('k-gross').textContent=money(t.gross);
+ if(isTeam){
+  var ea=0,eb=0;TRIPS.forEach(function(x){ea+=tripNetFor(x,'a',true,pctv);eb+=tripNetFor(x,'b',true,pctv);});
+  var crA=t.cr.reduce(function(a,b){return a+b.a;},0)/2,dedA=t.ded/2,
+   pA=ea+crA-dedA,pB=eb+crA-dedA;
+  document.getElementById('k-earn').textContent=money(ea+crA)+' / '+money(eb+crA);
+  document.getElementById('k-ded').textContent=money(dedA);
+  document.getElementById('k-pay').textContent=money(pA)+' / '+money(pB);
+  var c=whoCounts(),ln='Har driver uchun (A / B). Team trip: '+c.team+' ta (50/50)';
+  if(c.a)ln+=' · Faqat A: '+c.a+' ta (100%)';if(c.b)ln+=' · Faqat B: '+c.b+' ta (100%)';
+  document.getElementById('kpiNote').textContent=ln+'. Credits & deductions 50/50.';
+ }else{
+  var earn=t.net+t.cr.reduce(function(a,b){return a+b.a;},0),pay=earn-t.ded;
+  document.getElementById('k-earn').textContent=money(earn);
+  document.getElementById('k-ded').textContent=money(t.ded);
+  document.getElementById('k-pay').textContent=money(pay);
+  document.getElementById('kpiNote').textContent='';}
+}
+function ce(i,f,v){return '<td contenteditable oninput="editTrip('+i+',\''+f+'\',this.innerText)">'+esc(v)+'</td>';}
+function tripNetFor(t,who,isTeam,pct){
+ // who: 'a'|'b'. Returns this driver's net share of trip t
+ var r=t.rate||0;
+ if(!isTeam)return r*pct;
+ if(t.who==='a')return who==='a'?r:0;          // solo run by A -> 100% A
+ if(t.who==='b')return who==='b'?r:0;          // solo run by B -> 100% B
+ return r*pct;}                                 // team run -> split
+function tripsFor(who,isTeam){return TRIPS.filter(function(t){return !isTeam||t.who==='team'||t.who==='a'&&who==='a'||t.who==='b'&&who==='b'||!t.who;});}
+function totals(){var pct=(+val('b-pct')||0)/100,gross=0,net=0;
+ TRIPS.forEach(function(t){gross+=t.rate||0;net+=(t.rate||0)*pct;});
+ var dispPct=(S.co&&S.co.dispatch!=null)?S.co.dispatch:10,dispFee=gross*dispPct/100;
+ var cr=parseLines(document.getElementById('b-cred').value),dd=parseLines(document.getElementById('b-ded').value),
+  fuel=+val('b-fuel')||0;
+ if(dispFee>0)dd=[{d:'Dispatch Fee ('+dispPct+'% of gross)',m:'',a:dispFee}].concat(dd);
+ if(fuel>0)dd=dd.concat([{d:'Fuel',m:'This week',a:fuel}]);
+ var crT=cr.reduce(function(a,b){return a+b.a;},0),ddT=dd.reduce(function(a,b){return a+b.a;},0);
+ return {gross:gross,net:net,cr:cr,dd:dd,earn:net+crT,ded:ddT,payout:net+crT-ddT,pct:pct*100};}
+function collect(){
+ if(!TRIPS.length)return alert('Add at least one trip.'),null;
+ if(!chkDates(false))return null;
+ var isTeam=document.getElementById('b-type').value==='team';
+ var ids=[document.getElementById('b-d1').value];
+ if(isTeam){var b=document.getElementById('b-d2').value;if(!b)return alert('Pick driver B for a team statement.'),null;
+  if(b===ids[0])return alert('Driver A va Driver B bir xil bo\'lishi mumkin emas.'),null;ids.push(b);}
+ if(!ids[0])return alert('Add a driver first (Drivers tab).'),null;
+ var t=totals(),n=ids.length,pctv=(+val('b-pct')||0)/100,
+  cr=isTeam?t.cr.map(function(c){return{d:c.d,m:c.m,a:c.a/n};}):t.cr,
+  dd=isTeam?t.dd.map(function(c){return{d:c.d,m:c.m,a:c.a/n};}):t.dd,
+  crT=cr.reduce(function(a,b){return a+b.a;},0),ddT=dd.reduce(function(a,b){return a+b.a;},0);
+ var ALL=TRIPS.map(function(x,i){var c=JSON.parse(JSON.stringify(x));c._k=i;c.who='team';return c;});
+ window.__ALL=ALL;
+ return ids.map(function(id,ix){var who=ix===0?'a':'b';
+  var mine=ALL.filter(function(x){return !isTeam||x.who==='team'||x.who===who;}).map(function(x){
+   var c=JSON.parse(JSON.stringify(x));
+   c.solo=isTeam&&(x.who===who);           // this driver ran it alone
+   c.net=tripNetFor(x,who,isTeam,pctv);
+   return c;});
+  var gross=mine.reduce(function(a,x){return a+(x.rate||0);},0),
+   net=mine.reduce(function(a,x){return a+x.net;},0),
+   earn=net+crT,payout=earn-ddT;
+  return {id:'s'+Date.now()+Math.random().toString(36).slice(2,6),driverId:id,
+  pid:val('b-pid'),start:val('b-start'),end:val('b-end'),truck:val('b-truck'),type:document.getElementById('b-type').value,
+  pct:t.pct,trips:mine,credits:cr,deds:dd,
+  gross:gross,net:net,earn:earn,dedT:ddT,payout:payout,made:new Date().toISOString()};});}
+var DRAFT=null;   // editable working copy of the statement(s) shown on screen
+function preview(){var st=collect();if(!st)return;DRAFT={list:st,all:window.__ALL,save:false};showSheets(st,true);}
+/* recompute one draft statement after contract changes */
+function recompute(){
+ if(!DRAFT)return;var L=DRAFT.list,isTeam=L.length>1;
+ var pctv=(+val('b-pct')||0)/100;
+ L.forEach(function(st,ix){var who=ix===0?'a':'b';
+  st.trips=DRAFT.all.filter(function(x){return !isTeam||x.who==='team'||x.who===who;}).map(function(x){
+   var c=JSON.parse(JSON.stringify(x));c.solo=isTeam&&x.who===who;c.net=tripNetFor(x,who,isTeam,st.pct/100);return c;});
+  st.gross=st.trips.reduce(function(a,x){return a+(x.rate||0);},0);
+  st.net=st.trips.reduce(function(a,x){return a+x.net;},0);
+  st.earn=st.net+st.credits.reduce(function(a,b){return a+b.a;},0);
+  st.dedT=st.deds.reduce(function(a,b){return a+b.a;},0);
+  st.payout=st.earn-st.dedT;});}
+/* dropdown handler: change one trip's contract (by its row key) */
+function setContract(k,v){
+ if(!DRAFT)return;
+ DRAFT.all.forEach(function(x){if(x._k===k)x.who=v;});
+ recompute();showSheets(DRAFT.list,!DRAFT.save,true);}
+function generate(){var st=collect();if(!st)return;
+ DRAFT={list:st,all:window.__ALL,save:true};showSheets(st,false);}
+function saveDraft(){
+ if(!DRAFT||!DRAFT.save)return;
+ var chk=DRAFT.list.map(function(x){return x.trips.length;});
+ S.stmts=S.stmts.concat(DRAFT.list);save();renderHist();renderDrivers();
+ DRAFT.save=false;DRAFT.saved=true;showSheets(DRAFT.list,false,true);
+ alert('Statement(s) saqlandi ✔');}
+/* ---------- render sheet ---------- */
+function showSheets(list,isPrev,keep){var sy=window.pageYOffset||0;
+ document.getElementById('sheets').innerHTML=list.map(function(s){return sheet(s,isPrev);}).join('');
+ [].forEach.call(document.querySelectorAll('.view'),function(v){v.style.display='none';});
+ document.getElementById('sheetWrap').style.display='block';
+ document.getElementById('pgsize').value=S.pgsize||'pgLetter';applyPageSize();
+ var sb=document.getElementById('saveBtn');if(sb)sb.style.display=(DRAFT&&DRAFT.save)?'inline-block':'none';
+ var hint=document.getElementById('editHint');if(hint)hint.style.display=(DRAFT&&list.length>1&&!DRAFT.saved)?'block':'none';
+ window.scrollTo(0,keep?sy:0);}
+function applyPageSize(){var v=document.getElementById('pgsize').value;
+ [].forEach.call(document.querySelectorAll('#sheets .sheet'),function(s){s.style.page=v;});
+ S.pgsize=v;save();}
+function closeSheet(){document.getElementById('sheetWrap').style.display='none';document.getElementById('v-'+VIEW).style.display='block';}
+function fmtP(s){function f(d){if(!d)return '';var x=new Date(d+'T00:00:00');return x.toLocaleDateString('en-US',{month:'short',day:'2-digit'});}
+ return f(s.start)+' – '+f(s.end)+(s.end?', '+s.end.slice(0,4):'');}
+function contractCell(s,t){
+ var txt=t.solo?'Percent 100% <span class="mut">(Solo)</span>':'Percent '+s.pct+'% <span class="mut">('+(s.type==='team'?'Team split':'Solo')+')</span>';
+ var editable=DRAFT&&DRAFT.list.length>1&&DRAFT.list.indexOf(s)>-1&&t._k!=null;
+ if(!editable)return txt;
+ var who=DRAFT.list.indexOf(s)===0?'a':'b',cur=t.solo?'me':'team';
+ // one dropdown per row; changing it applies to BOTH driver statements
+ return '<span class="pr">'+txt+'</span><select class="noprint ctr" onchange="setContract('+t._k+',this.value)">'+
+  '<option value="team"'+(cur==='team'?' selected':'')+'>50% — Team split</option>'+
+  '<option value="'+who+'"'+(cur==='me'?' selected':'')+'>100% — Solo ('+esc((drv(s.driverId)||{name:'this driver'}).name)+')</option>'+
+  '<option value="'+(who==='a'?'b':'a')+'">100% — Solo (other driver)</option></select>';}
+function sheet(s,isPrev){var d=drv(s.driverId)||{name:'Driver'},co=S.co,y=ytd(s.driverId);
+ if(isPrev){y={g:(d.og||0)+s.gross,p:(d.op||0)+s.payout};}
+ var miTotal=s.trips.reduce(function(a,t){return a+(t.st==='Canceled'?0:(t.mi||0));},0);
+ var rows=s.trips.map(function(t,i){return '<tr><td><b>'+(i+1)+'</b><div class="mut">'+esc(t.id)+(t.st==='Canceled'?' · Canceled':'')+'</div></td><td>'+esc(t.o)+'</td><td>'+esc(t.d)+'</td><td class="n">'+(t.mi||'-')+'</td><td class="n">'+money(t.rate)+'</td><td style="white-space:nowrap">'+contractCell(s,t)+'</td><td class="n">'+money(t.net!=null?t.net:t.rate*s.pct/100)+'</td></tr>';}).join('');
+ var cr=s.credits.map(function(c){return '<tr><td>'+esc(c.d)+'</td><td><span class="badge">Credit</span></td><td>'+esc(c.m)+'</td><td class="n">'+money(c.a)+'</td></tr>';}).join(''),
+  crT=s.credits.reduce(function(a,b){return a+b.a;},0),
+  dd=s.deds.map(function(c){return '<tr><td>'+esc(c.d)+'</td><td>'+esc(c.m)+'</td><td class="n">'+money(c.a)+'</td></tr>';}).join('');
+ return '<div class="sheet"><div class="sh-top"><div class="drv"><h3>'+esc(d.name)+'</h3><div class="addr">'+esc(d.a1||'')+(d.a1&&d.a2?', ':'')+esc(d.a2||'')+'</div>'+
+ '<div class="sh-type">'+(s.type==='team'?'Team Driver':'Owner Operator / Solo')+'</div>'+
+ '<div class="sh-truck">Truck <span class="tbadge">'+esc(s.truck||'-')+'</span> &nbsp; Percent '+s.pct+'%</div></div>'+
+ '<div class="co"><div class="co-text"><b>'+esc((co.name||'YOUR COMPANY').toUpperCase())+'</b><div class="addr">'+esc(co.a1||'')+(co.a1&&co.a2?', ':'')+esc(co.a2||'')+'</div><div class="addr">'+esc(co.phone||'')+'</div></div>'+(co.logo?'<img src="'+co.logo+'">':'')+'</div></div>'+
+ '<div class="sh-sum"><div><p>YTD Gross <b>'+money(y.g)+'</b></p><p>YTD Payout <b>'+money(y.p)+'</b></p><p>YTD Net Pay <b>'+money(y.p)+'</b></p></div>'+
+ '<div><p>Payroll ID <b>'+esc(s.pid||'-')+'</b></p><p>Work Period <b>'+fmtP(s)+'</b></p><p>Total Trips <b>'+s.trips.length+'</b></p></div>'+
+ '<div><p>Total Trip Gross <b>'+money(s.gross)+'</b></p><p>Earning <b>'+money(s.earn)+'</b></p><p class="neg">Deductions <b>'+money(s.dedT)+'</b></p><p class="big">Payout <b>'+money(s.payout)+'</b></p></div></div>'+
+ '<h4>Trips &amp; Credits</h4><table><thead><tr><th>Trips</th><th>Origin</th><th>Destination</th><th class="n">Mileage</th><th class="n">Rate (Gross)</th><th>Contract</th><th class="n">Net Amount</th></tr></thead><tbody>'+rows+
+ '<tr class="tot"><td colspan="3">Totals: <span class="mut">('+miTotal.toLocaleString('en-US')+' mi completed)</span></td><td class="n">'+miTotal.toLocaleString('en-US')+'</td><td class="n">'+money(s.gross)+'</td><td></td><td class="n">'+money(s.net)+'</td></tr></tbody></table>'+
+ (cr?'<table style="margin-top:16px"><thead><tr><th>Credits</th><th>Type</th><th>Date</th><th class="n">Net Amount</th></tr></thead><tbody>'+cr+'<tr class="tot"><td colspan="3">Totals:</td><td class="n">'+money(crT)+'</td></tr></tbody></table>':'')+
+ (dd?'<h4>Recurring Deductions</h4><table><thead><tr><th>Description</th><th>Operation Days</th><th class="n">Charge</th></tr></thead><tbody>'+dd+'<tr class="tot"><td colspan="2">Totals:</td><td class="n">'+money(s.dedT)+'</td></tr></tbody></table>':'')+
+ (isPrev?'<div class="mut" style="margin-top:14px">PREVIEW — not saved, YTD not updated.</div>':'')+'</div>';}
+/* ---------- history ---------- */
+function renderHist(){document.getElementById('hbody').innerHTML=S.stmts.slice().reverse().map(function(s){var d=drv(s.driverId)||{name:'—'};
+ return '<tr><td class="mono">'+esc(s.pid)+'</td><td>'+esc(d.name)+'</td><td>'+fmtP(s)+'</td><td class="n">'+s.trips.length+'</td><td class="n">'+money(s.gross)+'</td><td class="n" style="color:var(--grn)">'+money(s.payout)+'</td>'+
+ '<td><button onclick="DRAFT=null;showSheets([S.stmts.filter(function(x){return x.id===\''+s.id+'\';})[0]],false)">View</button> <button class="tdel" onclick="delStmt(\''+s.id+'\')">✕</button></td></tr>';}).join('')||'<tr><td colspan="7" class="note">No statements saved yet.</td></tr>';}
+function delStmt(id){if(!confirm('Delete this statement? YTD totals will be reduced.'))return;
+ S.stmts=S.stmts.filter(function(s){return s.id!==id;});save();renderHist();renderDrivers();}
+/* ---------- backup ---------- */
+function backup(){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,2)],{type:'application/json'}));
+ a.download='statements-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();}
+function restore(inp){var f=inp.files[0];if(!f)return;var r=new FileReader();
+ r.onload=function(){try{var j=JSON.parse(r.result);if(!confirm('Replace current data with this backup?'))return;S=j;save();location.reload();}catch(e){alert('Not a valid backup file.');}};r.readAsText(f);}
+/* ---------- print: har statement 1 ta varaqqa sig'adi (trip ko'p bo'lsa avtomatik kichrayadi) ---------- */
+function fitPrint(){
+ var v=(document.getElementById('pgsize')||{}).value||'pgLetter',
+  PH={pgLetter:10.0,pgLegal:13.0,pgA4:(297-28)/25.4}[v]||10.0,   // inch
+  PW={pgLetter:7.5,pgLegal:7.5,pgA4:(210-28)/25.4}[v]||7.5,
+  maxH=PH*96*0.90;   // 10% zaxira: hech qachon 2-varaqqa o'tib ketmasin
+ var st=document.getElementById('fitTmp');if(st)st.remove();
+ st=document.createElement('style');st.id='fitTmp';
+ st.textContent='#sheets .sheet{width:'+(PW*96)+'px!important;max-width:'+(PW*96)+'px!important;margin:0!important;padding:0!important;border-radius:0!important;overflow:visible!important}'+
+  '#sheets .sheet select,#sheets .sheet .ctr{display:none!important}';
+ document.head.appendChild(st);
+ [].forEach.call(document.querySelectorAll('#sheets .sheet'),function(sh){
+  sh.classList.add('measure');
+  var lo=0.4,hi=1.6,best=lo;
+  for(var i=0;i<18;i++){var mid=(lo+hi)/2;sh.style.setProperty('--u',mid);
+   if(sh.scrollHeight<=maxH){best=mid;lo=mid;}else hi=mid;}
+  // balandlik u bilan silliq o'smaydi (matn o'ralishi tufayli) -> natijani tekshirib, sig'masa kichraytiramiz
+  sh.style.setProperty('--u',best);
+  var guard=0;while(sh.scrollHeight>maxH&&best>0.3&&guard++<80){best=best*0.985;sh.style.setProperty('--u',best);}
+  sh.style.setProperty('--u',best.toFixed(3));sh.dataset.u=best.toFixed(3);
+  sh.style.setProperty('max-height',(PH*96-8)+'px','important');});
+}
+window.addEventListener('beforeprint',fitPrint);
+window.addEventListener('afterprint',function(){
+ var t=document.getElementById('fitTmp');if(t)t.remove();
+ [].forEach.call(document.querySelectorAll('#sheets .sheet'),function(sh){sh.classList.remove('measure');sh.style.removeProperty('--u');sh.style.removeProperty('max-height');});});
+
+/* ---------- Google Sheets ---------- */
+function saveG(){S.g={url:val('g-url'),sec:document.getElementById('g-sec').value};save();
+ document.getElementById('g-msg').innerHTML='<span style="color:var(--grn)">Saqlandi.</span> Endi "Test connection" ni bosing.';}
+function fillG(){var g=S.g||{};document.getElementById('g-url').value=g.url||'';document.getElementById('g-sec').value=g.sec||'';}
+function gpost(payload){
+ var g=S.g||{};
+ if(!g.url||!g.sec)return Promise.reject(new Error('Avval Settings -> Google Sheets ga URL va Secret kiriting.'));
+ payload.secret=g.sec;
+ // text/plain -> CORS "preflight" bo'lmaydi, Apps Script bilan ishlaydi
+ return fetch(g.url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)})
+  .then(function(r){return r.json();});}
+function testG(){var m=document.getElementById('g-msg');m.textContent='Tekshirilmoqda...';
+ gpost({statements:[]}).then(function(r){m.innerHTML=r.ok?'<span style="color:var(--grn)">✔ Ulandi. Google Sheets tayyor.</span>':'<span style="color:var(--red)">✘ '+esc(r.error||'Xato')+'</span>';})
+ .catch(function(e){m.innerHTML='<span style="color:var(--red)">✘ Ulanib bo\'lmadi: '+esc(e.message)+'</span>';});}
+function toSheetPayload(s){
+ var d=drv(s.driverId)||{name:'Driver'},y=ytd(s.driverId),
+  miles=s.trips.reduce(function(a,t){return a+(t.st==='Canceled'?0:(t.mi||0));},0);
+ return {id:s.id,driverName:d.name,pid:s.pid,period:fmtP(s),truck:s.truck,type:s.type,pct:s.pct,
+  gross:s.gross,net:s.net,earn:s.earn,dedT:s.dedT,payout:s.payout,miles:miles,ytdGross:y.g,ytdPayout:y.p,
+  trips:s.trips.map(function(t){return {id:t.id,o:t.o,d:t.d,mi:t.mi||0,rate:t.rate||0,net:(t.net!=null?t.net:t.rate*s.pct/100),solo:!!t.solo,
+   contract:t.solo?'Percent 100% (Solo)':'Percent '+s.pct+'% ('+(s.type==='team'?'Team split':'Solo')+')'};}),
+  credits:s.credits,deds:s.deds};}
+function sendSheets(){
+ var box=document.getElementById('gsMsg'),btn=document.getElementById('gsBtn');
+ if(!DRAFT||!DRAFT.list){box.innerHTML='<span style="color:var(--red)">Avval statement yarating.</span>';return;}
+ if(DRAFT.save){box.innerHTML='<span style="color:var(--amb)">⚠ Avval <b>💾 Save statement(s)</b> ni bosing. Tekshirilgan statement saqlangach Google Sheets ga yuboriladi.</span>';return;}
+ if(!S.g||!S.g.url||!S.g.sec){box.innerHTML='<span style="color:var(--red)">✘ Avval <b>Settings → Google Sheets</b> ga Web app URL va Secret kiriting.</span>';return;}
+ var list=DRAFT.list.map(function(x){return S.stmts.filter(function(y){return y.id===x.id;})[0]||x;});
+ var payload=list.map(toSheetPayload);
+ var names=list.map(function(x){return (drv(x.driverId)||{name:'?'}).name;}).join(', ');
+ var again=list.some(function(x){return x.sent;});
+ if(!confirm((again?'⚠ Bu statement oldin yuborilgan (dublikat yozilmaydi).\n\n':'')+'Google Sheets ga yuborilsinmi?\n\n'+names+'\nPayroll: '+(list[0].pid||'-')+'\n\nHar driver o\'z sheet\'iga tag-ma-tag qo\'shiladi.'))return;
+ btn.disabled=true;box.textContent='Yuborilmoqda...';
+ gpost({statements:payload}).then(function(r){btn.disabled=false;
+  if(!r.ok){box.innerHTML='<span style="color:var(--red)">✘ '+esc(r.error||'Xato')+'</span>';return;}
+  list.forEach(function(x){x.sent=new Date().toISOString();});save();
+  box.innerHTML='<span style="color:var(--grn)">✔ Google Sheets ga yozildi:</span> '+r.results.map(function(z){return '<b>'+esc(z.driver)+'</b> — '+esc(z.status);}).join(' &nbsp;|&nbsp; ')+
+   (r.url?' &nbsp; <a href="'+esc(r.url)+'" target="_blank" style="color:var(--amb)">Faylni ochish ↗</a>':'');
+ }).catch(function(e){btn.disabled=false;box.innerHTML='<span style="color:var(--red)">✘ Yuborib bo\'lmadi: '+esc(e.message)+'</span>';});}
+/* ---------- init ---------- */
+load();fillSet();fillG();fillDriverSelects();
+document.getElementById('b-ded').value=S.ded||document.getElementById('c-ded').value;
+typeChg();calc();renderDrivers();renderHist();
+</script></body></html>
