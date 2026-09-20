@@ -69,9 +69,10 @@ td.n,th.n{text-align:right;font-family:var(--mono)}
 .sh-sum p b{font-family:monospace;font-weight:700;white-space:nowrap}
 .sh-sum .big{font-size:16px;border-top:1.5px solid #b9c2cb;padding-top:7px;margin-top:3px;font-weight:800}
 .sheet h4{font-size:15px;margin:20px 0 9px;font-weight:800;padding-bottom:6px;border-bottom:2.5px solid #1b1f24}
-.sheet table{font-size:11.5px;width:100%;min-width:0}
-.sheet th{color:#1b1f24;background:#e7ebee;border-bottom:3px solid #1b1f24;text-transform:uppercase;font-family:Helvetica,Arial,sans-serif;font-size:10.5px;letter-spacing:.04em;font-weight:800;padding:8px 6px}
-.sheet td{border-bottom:1.5px solid #c7d0d8;color:#1b1f24;font-weight:500;padding:7px 6px}
+.sheet table{font-size:11.5px;width:100%;min-width:0;border-collapse:collapse}
+.sheet th:not(:last-child),.sheet td:not(:last-child){border-right:1px solid #d7dde3}
+.sheet th{color:#1b1f24;background:#e7ebee;border-bottom:3px solid #1b1f24;text-transform:uppercase;font-family:Helvetica,Arial,sans-serif;font-size:10.5px;letter-spacing:.04em;font-weight:800;padding:8px 6px;vertical-align:top}
+.sheet td{border-bottom:1.5px solid #c7d0d8;color:#1b1f24;font-weight:500;padding:7px 6px;vertical-align:top}
 .sheet tr.tot td{background:#e7ebee;font-weight:800;border-bottom:none;border-top:2px solid #1b1f24}
 .sheet .mut{color:#5c6773;font-size:10px;font-weight:500}
 .sheet .neg{color:#c6392f}
@@ -176,6 +177,13 @@ html,body{background:#fff!important;padding:0!important;margin:0!important}
    <div class="f" id="d2wrap" style="display:none"><label>Driver B</label><select id="b-d2" onchange="calc()"></select></div>
    <div class="f"><label>Percent each</label><input id="b-pct" type="number" step="0.01" value="90" oninput="calc()"></div>
   </div>
+  <div class="row">
+   <div class="f" style="max-width:190px"><label id="daysAlbl">Days worked — Driver A</label><select id="b-daysA" onchange="calc()">
+    <option value="7" selected>7 days</option><option value="6">6 days</option><option value="5">5 days</option><option value="4">4 days</option><option value="3">3 days</option><option value="2">2 days</option><option value="1">1 day</option></select></div>
+   <div class="f" id="daysBwrap" style="display:none;max-width:190px"><label>Days worked — Driver B</label><select id="b-daysB" onchange="calc()">
+    <option value="7" selected>7 days</option><option value="6">6 days</option><option value="5">5 days</option><option value="4">4 days</option><option value="3">3 days</option><option value="2">2 days</option><option value="1">1 day</option></select></div>
+   <div class="f note" style="align-self:flex-end;padding-bottom:9px">Recurring deductions below prorate by days worked (rate ÷ base days × days worked). Dispatch fee and Fuel are not affected.</div>
+  </div>
  </div>
 
  <div class="card"><h2>2 · Trips</h2>
@@ -191,7 +199,7 @@ Also accepts simple lines:  LOADID | Origin | Destination | Miles | Rate"></text
   <div class="row"><div class="f" style="max-width:220px"><label>Fuel (this week)</label><input id="b-fuel" type="number" step="0.01" placeholder="0.00" oninput="calc()"></div></div>
   <div class="row"><div class="f"><label>Credits (Description | Date | Amount — one per line)</label><textarea id="b-cred" style="min-height:70px" oninput="calc()" placeholder="BONUS FOR NO VIOLATION | 03/29/2026 | 500"></textarea></div>
   <div class="f"><label>Deductions (Description | Days | Amount)</label><textarea id="b-ded" style="min-height:70px" oninput="calc()"></textarea></div></div>
-  <div class="note">Deductions load from Settings each time. On a team statement, credits and deductions entered here apply to <b>each</b> driver's statement unless you edit one after generating.</div>
+  <div class="note">Deductions load from Settings each time. Recurring deduction lines (e.g. "7 days") prorate per driver by the <b>Days worked</b> selectors above (rate ÷ base days × days worked). Dispatch Fee is always per-trip; Fuel and Credits split evenly on a team statement.</div>
  </div>
 
  <div class="card"><h2>4 · Totals</h2>
@@ -204,7 +212,7 @@ Also accepts simple lines:  LOADID | Origin | Destination | Miles | Rate"></text
 <!-- DRIVERS -->
 <div id="v-drivers" class="view noprint" style="display:none">
  <div class="card"><h2>Add driver</h2>
-  <div class="row"><div class="f"><label>Name</label><input id="d-name" placeholder="Driver name"></div>
+  <div class="row"><div class="f"><label>Name</label><input id="d-name" placeholder="Driver Name"></div>
   <div class="f"><label>Default type</label><select id="d-type"><option value="solo">Owner Operator/Solo</option><option value="team">Team</option></select></div>
   <div class="f"><label>Default %</label><input id="d-pct" type="number" value="90"></div></div>
   <div class="row"><div class="f"><label>Address line 1</label><input id="d-a1" placeholder="123 Main st"></div>
@@ -282,7 +290,7 @@ function addDriver(){var n=val('d-name');if(!n)return alert('Enter a name.');
 function delDriver(id){if(!confirm('Remove this driver? Their saved statements stay in History.'))return;
  S.drivers=S.drivers.filter(function(d){return d.id!==id;});save();renderDrivers();fillDriverSelects();}
 function ytd(id){var d=drv(id),g=d?d.og:0,p=d?d.op:0,c=0;
- S.stmts.forEach(function(s){if(s.driverId===id){g+=s.gross;p+=s.payout;c++;}});return{g:g,p:p,c:c};}
+ S.stmts.forEach(function(s){if(s.driverId===id){g+=s.earn;p+=s.payout;c++;}});return{g:g,p:p,c:c};}
 function drv(id){return S.drivers.filter(function(d){return d.id===id;})[0];}
 function renderDrivers(){document.getElementById('dbody').innerHTML=S.drivers.map(function(d){var y=ytd(d.id);
  return '<tr><td><b>'+esc(d.name)+'</b><div class="note">'+esc(d.a1||'')+' '+esc(d.a2||'')+'</div></td><td><span class="pill '+d.type+'">'+d.type+'</span></td><td class="n">'+d.pct+'%</td><td class="n">'+y.c+'</td><td class="n">'+money(y.g)+'</td><td class="n">'+money(y.p)+'</td><td class="n">'+money(y.p)+'</td><td><button class="tdel" onclick="delDriver(\''+d.id+'\')">✕</button></td></tr>';}).join('')||'<tr><td colspan="8" class="note">No drivers yet.</td></tr>';}
@@ -291,6 +299,8 @@ function fillDriverSelects(){var o=S.drivers.map(function(d){return '<option val
 /* ---------- build ---------- */
 function typeChg(){var t=document.getElementById('b-type').value;if(t!=='team')TRIPS.forEach(function(x){x.who='team';});
  document.getElementById('d2wrap').style.display=t==='team'?'block':'none';
+ document.getElementById('daysBwrap').style.display=t==='team'?'block':'none';
+ document.getElementById('daysAlbl').textContent=t==='team'?'Days worked — Driver A':'Days worked';
  document.getElementById('b-pct').value=t==='team'?(S.co.team||50):(S.co.solo||90);calc();}
 function iso(d){return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);}
 function validYear(str){var p=(str||'').split('-');return p.length===3&&+p[0]>=2000&&+p[0]<=2100;}
@@ -358,6 +368,15 @@ function parseRaw(){var raw=document.getElementById('b-raw').value;if(!raw.trim(
  calc();}
 function parseLines(txt){return (txt||'').split(/\n/).map(function(l){var p=l.split('|').map(function(x){return x.trim();});
  return p.length<2?null:{d:p[0],m:p[1],a:parseFloat((p[2]||p[1]||'').replace(/[^0-9.\-]/g,''))||0};}).filter(Boolean);}
+function baseDaysOf(m){var mm=(m||'').match(/(\d+)/);return mm?parseInt(mm[1],10):7;}
+function daysFor(who,isTeam){
+ if(!isTeam)return(+val('b-daysA'))||7;
+ return(+(who==='a'?val('b-daysA'):val('b-daysB')))||7;}
+function dedLinesFor(who,isTeam,rawDD){
+ var d=daysFor(who,isTeam);
+ return rawDD.map(function(c){
+  var base=baseDaysOf(c.m),amt=c.a*(d/base),label=(d===base)?c.m:(d+' of '+base+' days');
+  return{d:c.d,m:label,a:amt};});}
 function calc(){
  document.getElementById('tbody').innerHTML=TRIPS.map(function(t,i){var pct=(+val('b-pct')||0)/100;
   return '<tr><td>'+(i+1)+(t.st==='Canceled'?'<div style="color:var(--red);font-size:9.5px;font-family:var(--mono)">CXL</div>':'')+(t.dr?'<div style="color:var(--dim);font-size:9.5px">'+esc(t.dr)+'</div>':'')+'</td>'+
@@ -372,20 +391,34 @@ function calc(){
  document.getElementById('k-gross').textContent=money(t.gross);
  if(isTeam){
   var ea=0,eb=0;TRIPS.forEach(function(x){ea+=tripNetFor(x,'a',true,pctv);eb+=tripNetFor(x,'b',true,pctv);});
-  var crA=t.cr.reduce(function(a,b){return a+b.a;},0)/2,dedA=t.ded/2,
-   pA=ea+crA-dedA,pB=eb+crA-dedA;
+  var dispPct=(S.co&&S.co.dispatch!=null)?S.co.dispatch:10,dispA=0,dispB=0;
+  TRIPS.forEach(function(x){dispA+=tripDispatchFor(x,'a',true,pctv,dispPct);dispB+=tripDispatchFor(x,'b',true,pctv,dispPct);});
+  var rawRecurring=parseLines(document.getElementById('b-ded').value),
+   recA=dedLinesFor('a',true,rawRecurring).reduce(function(a,c){return a+c.a;},0),
+   recB=dedLinesFor('b',true,rawRecurring).reduce(function(a,c){return a+c.a;},0),
+   fuel=(+val('b-fuel')||0)/2,
+   crA=t.cr.reduce(function(a,b){return a+b.a;},0)/2,
+   dedA=dispA+recA+fuel,dedB=dispB+recB+fuel,
+   pA=ea+crA-dedA,pB=eb+crA-dedB;
   document.getElementById('k-earn').textContent=money(ea+crA)+' / '+money(eb+crA);
-  document.getElementById('k-ded').textContent=money(dedA);
+  document.getElementById('k-ded').textContent=money(dedA)+' / '+money(dedB);
   document.getElementById('k-pay').textContent=money(pA)+' / '+money(pB);
   var c=whoCounts(),ln='Har driver uchun (A / B). Team trip: '+c.team+' ta (50/50)';
   if(c.a)ln+=' · Faqat A: '+c.a+' ta (100%)';if(c.b)ln+=' · Faqat B: '+c.b+' ta (100%)';
-  document.getElementById('kpiNote').textContent=ln+'. Credits & deductions 50/50.';
+  var dA=+val('b-daysA')||7,dB=+val('b-daysB')||7;
+  ln+='. Credits & Fuel 50/50; recurring deductions '+dA+' / '+dB+' kun bo\'yicha proratsiya.';
+  document.getElementById('kpiNote').textContent=ln;
  }else{
-  var earn=t.net+t.cr.reduce(function(a,b){return a+b.a;},0),pay=earn-t.ded;
+  var rawRec2=parseLines(document.getElementById('b-ded').value),
+   recSolo=dedLinesFor('a',false,rawRec2).reduce(function(a,c){return a+c.a;},0),
+   otherSolo=t.dd.filter(function(c){return c.isDisp||c.isFuel;}).reduce(function(a,c){return a+c.a;},0),
+   dedSolo=recSolo+otherSolo,
+   earn=t.net+t.cr.reduce(function(a,b){return a+b.a;},0),pay=earn-dedSolo;
   document.getElementById('k-earn').textContent=money(earn);
-  document.getElementById('k-ded').textContent=money(t.ded);
+  document.getElementById('k-ded').textContent=money(dedSolo);
   document.getElementById('k-pay').textContent=money(pay);
-  document.getElementById('kpiNote').textContent='';}
+  var dA2=+val('b-daysA')||7;
+  document.getElementById('kpiNote').textContent=dA2!==7?('Recurring deductions prorated: '+dA2+' of 7 days.'):'';}
 }
 function ce(i,f,v){return '<td contenteditable oninput="editTrip('+i+',\''+f+'\',this.innerText)">'+esc(v)+'</td>';}
 function tripNetFor(t,who,isTeam,pct){
@@ -395,14 +428,21 @@ function tripNetFor(t,who,isTeam,pct){
  if(t.who==='a')return who==='a'?r:0;          // solo run by A -> 100% A
  if(t.who==='b')return who==='b'?r:0;          // solo run by B -> 100% B
  return r*pct;}                                 // team run -> split
+function tripDispatchFor(t,who,isTeam,pct,dispPct){
+ // per-trip dispatch fee, mirrors tripNetFor's split logic
+ var fee=(t.rate||0)*dispPct/100;
+ if(!isTeam)return fee*pct;
+ if(t.who==='a')return who==='a'?fee:0;
+ if(t.who==='b')return who==='b'?fee:0;
+ return fee*pct;}
 function tripsFor(who,isTeam){return TRIPS.filter(function(t){return !isTeam||t.who==='team'||t.who==='a'&&who==='a'||t.who==='b'&&who==='b'||!t.who;});}
 function totals(){var pct=(+val('b-pct')||0)/100,gross=0,net=0;
  TRIPS.forEach(function(t){gross+=t.rate||0;net+=(t.rate||0)*pct;});
  var dispPct=(S.co&&S.co.dispatch!=null)?S.co.dispatch:10,dispFee=gross*dispPct/100;
  var cr=parseLines(document.getElementById('b-cred').value),dd=parseLines(document.getElementById('b-ded').value),
   fuel=+val('b-fuel')||0;
- if(dispFee>0)dd=[{d:'Dispatch Fee ('+dispPct+'% of gross)',m:'',a:dispFee}].concat(dd);
- if(fuel>0)dd=dd.concat([{d:'Fuel',m:'This week',a:fuel}]);
+ if(dispFee>0)dd=[{d:'Dispatch Fee ('+dispPct+'% of gross)',m:'',a:dispFee,isDisp:true}].concat(dd);
+ if(fuel>0)dd=dd.concat([{d:'Fuel',m:'This week',a:fuel,isFuel:true}]);
  var crT=cr.reduce(function(a,b){return a+b.a;},0),ddT=dd.reduce(function(a,b){return a+b.a;},0);
  return {gross:gross,net:net,cr:cr,dd:dd,earn:net+crT,ded:ddT,payout:net+crT-ddT,pct:pct*100};}
 function collect(){
@@ -414,9 +454,15 @@ function collect(){
   if(b===ids[0])return alert('Driver A va Driver B bir xil bo\'lishi mumkin emas.'),null;ids.push(b);}
  if(!ids[0])return alert('Add a driver first (Drivers tab).'),null;
  var t=totals(),n=ids.length,pctv=(+val('b-pct')||0)/100,
+  dispPct=(S.co&&S.co.dispatch!=null)?S.co.dispatch:10,
   cr=isTeam?t.cr.map(function(c){return{d:c.d,m:c.m,a:c.a/n};}):t.cr,
-  dd=isTeam?t.dd.map(function(c){return{d:c.d,m:c.m,a:c.a/n};}):t.dd,
-  crT=cr.reduce(function(a,b){return a+b.a;},0),ddT=dd.reduce(function(a,b){return a+b.a;},0);
+  // dispatch fee endi har bir trip kontraktiga qarab pastda alohida hisoblanadi;
+  // recurring deductionlar endi har bir driverning ishlagan kuniga qarab alohida proratsiya qilinadi;
+  // Fuel esa haftalik haqiqiy summa sifatida hali ham tengiga bo'linadi
+  rawRecurring=t.dd.filter(function(c){return !c.isDisp&&!c.isFuel;}),
+  fuelLine=t.dd.filter(function(c){return c.isFuel;}),
+  fuelSplit=isTeam?fuelLine.map(function(c){return{d:c.d,m:c.m,a:c.a/n};}):fuelLine,
+  crT=cr.reduce(function(a,b){return a+b.a;},0);
  var ALL=TRIPS.map(function(x,i){var c=JSON.parse(JSON.stringify(x));c._k=i;c.who='team';return c;});
  window.__ALL=ALL;
  return ids.map(function(id,ix){var who=ix===0?'a':'b';
@@ -424,9 +470,14 @@ function collect(){
    var c=JSON.parse(JSON.stringify(x));
    c.solo=isTeam&&(x.who===who);           // this driver ran it alone
    c.net=tripNetFor(x,who,isTeam,pctv);
+   c.dispFee=tripDispatchFor(x,who,isTeam,pctv,dispPct);
    return c;});
   var gross=mine.reduce(function(a,x){return a+(x.rate||0);},0),
    net=mine.reduce(function(a,x){return a+x.net;},0),
+   myDispFee=mine.reduce(function(a,x){return a+x.dispFee;},0),
+   recDD=dedLinesFor(who,isTeam,rawRecurring),
+   dd=(myDispFee>0?[{d:'Dispatch Fee ('+dispPct+'% of gross)',m:'',a:myDispFee,isDisp:true}]:[]).concat(recDD).concat(fuelSplit),
+   ddT=dd.reduce(function(a,b){return a+b.a;},0),
    earn=net+crT,payout=earn-ddT;
   return {id:'s'+Date.now()+Math.random().toString(36).slice(2,6),driverId:id,
   pid:val('b-pid'),start:val('b-start'),end:val('b-end'),truck:val('b-truck'),type:document.getElementById('b-type').value,
@@ -437,12 +488,16 @@ function preview(){var st=collect();if(!st)return;DRAFT={list:st,all:window.__AL
 /* recompute one draft statement after contract changes */
 function recompute(){
  if(!DRAFT)return;var L=DRAFT.list,isTeam=L.length>1;
- var pctv=(+val('b-pct')||0)/100;
+ var pctv=(+val('b-pct')||0)/100,dispPct=(S.co&&S.co.dispatch!=null)?S.co.dispatch:10;
  L.forEach(function(st,ix){var who=ix===0?'a':'b';
   st.trips=DRAFT.all.filter(function(x){return !isTeam||x.who==='team'||x.who===who;}).map(function(x){
-   var c=JSON.parse(JSON.stringify(x));c.solo=isTeam&&x.who===who;c.net=tripNetFor(x,who,isTeam,st.pct/100);return c;});
+   var c=JSON.parse(JSON.stringify(x));c.solo=isTeam&&x.who===who;c.net=tripNetFor(x,who,isTeam,st.pct/100);
+   c.dispFee=tripDispatchFor(x,who,isTeam,st.pct/100,dispPct);return c;});
   st.gross=st.trips.reduce(function(a,x){return a+(x.rate||0);},0);
   st.net=st.trips.reduce(function(a,x){return a+x.net;},0);
+  var myDispFee=st.trips.reduce(function(a,x){return a+(x.dispFee||0);},0),
+   ddOther=st.deds.filter(function(c){return !c.isDisp;});
+  st.deds=(myDispFee>0?[{d:'Dispatch Fee ('+dispPct+'% of gross)',m:'',a:myDispFee,isDisp:true}]:[]).concat(ddOther);
   st.earn=st.net+st.credits.reduce(function(a,b){return a+b.a;},0);
   st.dedT=st.deds.reduce(function(a,b){return a+b.a;},0);
   st.payout=st.earn-st.dedT;});}
@@ -470,7 +525,8 @@ function showSheets(list,isPrev,keep){var sy=window.pageYOffset||0;
  window.scrollTo(0,keep?sy:0);}
 function applyPageSize(){var v=document.getElementById('pgsize').value;
  [].forEach.call(document.querySelectorAll('#sheets .sheet'),function(s){s.style.page=v;});
- S.pgsize=v;save();}
+ S.pgsize=v;save();
+ setTimeout(function(){fitPrint(true);},0);}
 function closeSheet(){document.getElementById('sheetWrap').style.display='none';document.getElementById('v-'+VIEW).style.display='block';}
 function fmtP(s){function f(d){if(!d)return '';var x=new Date(d+'T00:00:00');return x.toLocaleDateString('en-US',{month:'short',day:'2-digit'});}
  return f(s.start)+' – '+f(s.end)+(s.end?', '+s.end.slice(0,4):'');}
@@ -485,7 +541,7 @@ function contractCell(s,t){
   '<option value="'+who+'"'+(cur==='me'?' selected':'')+'>100% — Solo ('+esc((drv(s.driverId)||{name:'this driver'}).name)+')</option>'+
   '<option value="'+(who==='a'?'b':'a')+'">100% — Solo (other driver)</option></select>';}
 function sheet(s,isPrev){var d=drv(s.driverId)||{name:'Driver'},co=S.co,y=ytd(s.driverId);
- if(isPrev){y={g:(d.og||0)+s.gross,p:(d.op||0)+s.payout};}
+ if(isPrev){y={g:(d.og||0)+s.earn,p:(d.op||0)+s.payout};}
  var miTotal=s.trips.reduce(function(a,t){return a+(t.st==='Canceled'?0:(t.mi||0));},0);
  var rows=s.trips.map(function(t,i){return '<tr><td><b>'+(i+1)+'</b><div class="mut">'+esc(t.id)+(t.st==='Canceled'?' · Canceled':'')+'</div></td><td>'+esc(t.o)+'</td><td>'+esc(t.d)+'</td><td class="n">'+(t.mi||'-')+'</td><td class="n">'+money(t.rate)+'</td><td style="white-space:nowrap">'+contractCell(s,t)+'</td><td class="n">'+money(t.net!=null?t.net:t.rate*s.pct/100)+'</td></tr>';}).join('');
  var cr=s.credits.map(function(c){return '<tr><td>'+esc(c.d)+'</td><td><span class="badge">Credit</span></td><td>'+esc(c.m)+'</td><td class="n">'+money(c.a)+'</td></tr>';}).join(''),
@@ -515,7 +571,7 @@ function backup(){var a=document.createElement('a');a.href=URL.createObjectURL(n
 function restore(inp){var f=inp.files[0];if(!f)return;var r=new FileReader();
  r.onload=function(){try{var j=JSON.parse(r.result);if(!confirm('Replace current data with this backup?'))return;S=j;save();location.reload();}catch(e){alert('Not a valid backup file.');}};r.readAsText(f);}
 /* ---------- print: har statement 1 ta varaqqa sig'adi (trip ko'p bo'lsa avtomatik kichrayadi) ---------- */
-function fitPrint(){
+function fitPrint(proactive){
  var v=(document.getElementById('pgsize')||{}).value||'pgLetter',
   PH={pgLetter:10.0,pgLegal:13.0,pgA4:(297-28)/25.4}[v]||10.0,   // inch
   PW={pgLetter:7.5,pgLegal:7.5,pgA4:(210-28)/25.4}[v]||7.5,
@@ -535,8 +591,15 @@ function fitPrint(){
   var guard=0;while(sh.scrollHeight>maxH&&best>0.3&&guard++<80){best=best*0.985;sh.style.setProperty('--u',best);}
   sh.style.setProperty('--u',best.toFixed(3));sh.dataset.u=best.toFixed(3);
   sh.style.setProperty('max-height',(PH*96-8)+'px','important');});
+ // proaktiv chaqiruv: --u qiymati DOMga allaqachon "pishirilgan" bo'lsin (inline style),
+ // shunda beforeprint hodisasi otilmasa ham (ba'zi mobil brauzerlarda bo'ladi),
+ // @media print qoidalari shu tayyor qiymatni o'qib, sahifani to'liq to'ldiradi.
+ // Ekrandagi interaktiv ko'rinishni (dropdown, select) darhol tiklaymiz.
+ if(proactive){
+  [].forEach.call(document.querySelectorAll('#sheets .sheet'),function(sh){sh.classList.remove('measure');});
+  var tmp=document.getElementById('fitTmp');if(tmp)tmp.remove();}
 }
-window.addEventListener('beforeprint',fitPrint);
+window.addEventListener('beforeprint',function(){fitPrint(false);});
 window.addEventListener('afterprint',function(){
  var t=document.getElementById('fitTmp');if(t)t.remove();
  [].forEach.call(document.querySelectorAll('#sheets .sheet'),function(sh){sh.classList.remove('measure');sh.style.removeProperty('--u');sh.style.removeProperty('max-height');});});
