@@ -556,10 +556,11 @@ function testG(){var m=document.getElementById('g-msg');m.textContent='Tekshiril
  gpost({statements:[]}).then(function(r){m.innerHTML=r.ok?'<span style="color:var(--grn)">✔ Ulandi. Google Sheets tayyor.</span>':'<span style="color:var(--red)">✘ '+esc(r.error||'Xato')+'</span>';})
  .catch(function(e){m.innerHTML='<span style="color:var(--red)">✘ Ulanib bo\'lmadi: '+esc(e.message)+'</span>';});}
 function toSheetPayload(s){
- var d=drv(s.driverId)||{name:'Driver'},y=ytd(s.driverId),
+ var d=drv(s.driverId)||{name:'Driver'},y=ytd(s.driverId),co=S.co||{},
   miles=s.trips.reduce(function(a,t){return a+(t.st==='Canceled'?0:(t.mi||0));},0);
  return {id:s.id,driverName:d.name,pid:s.pid,period:fmtP(s),truck:s.truck,type:s.type,pct:s.pct,
   gross:s.gross,net:s.net,earn:s.earn,dedT:s.dedT,payout:s.payout,miles:miles,ytdGross:y.g,ytdPayout:y.p,
+  company:{name:co.name||'',phone:co.phone||'',a1:co.a1||'',a2:co.a2||'',driverAddr1:d.a1||'',driverAddr2:d.a2||''},
   trips:s.trips.map(function(t){return {id:t.id,o:t.o,d:t.d,mi:t.mi||0,rate:t.rate||0,net:(t.net!=null?t.net:t.rate*s.pct/100),solo:!!t.solo,
    contract:t.solo?'Percent 100% (Solo)':'Percent '+s.pct+'% ('+(s.type==='team'?'Team split':'Solo')+')'};}),
   credits:s.credits,deds:s.deds};}
