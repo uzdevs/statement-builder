@@ -337,7 +337,7 @@ Trailer Charge | 7 days | 300</textarea></div></div>
 </div>
 
 <script>
-var APP_VERSION='2.0',APP_DATE='2026-11-11';   // <-- har yangilanishda o'zgartiring
+var APP_VERSION='2.0.1',APP_DATE='2026-11-11';   // <-- har yangilanishda o'zgartiring
 var KEY='fl_stmt_v1', S={co:{},drivers:[],stmts:[],ded:''}, TRIPS=[], VIEW='build';
 function money(n){return '$'+(Math.round((n||0)*100)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function esc(s){return (s==null?'':''+s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -938,14 +938,22 @@ function pdfShown(){pdfList(SHOWN||[],'shLog');}
 
 /* ---------- Telegram ---------- */
 function tgCfg(){return S.tg||{};}
-function tgCall(method,form){var t=tgCfg().token;if(!t)return Promise.reject(new Error('Settings → Telegram bot token киритинг.'));
- return fetch('https://api.telegram.org/bot'+t+'/'+method,{method:'POST',body:form}).then(function(r){return r.json();})
-  .then(function(j){if(!j.ok)throw new Error(j.description||'Telegram error');return j.result;});}
-function tgForm(o){var f=new FormData();Object.keys(o||{}).forEach(function(k){f.append(k,o[k]);});return f;}
-function tgDoc(chat,blob,name,caption){var f=tgForm({chat_id:chat});f.append('document',blob,name);if(caption)f.append('caption',caption);return tgCall('sendDocument',f);}
+function tgToken(){return String(tgCfg().token||'').replace(/\s+/g,'').replace(/^https?:\/\/api\.telegram\.org\/bot/i,'').replace(/^bot(?=\d)/i,'').replace(/\/.*$/,'');}
+function tgCall(method,body){var t=tgToken();if(!t)return Promise.reject(new Error('Settings → Telegram bot token киритинг.'));
+ if(!/^\d{5,}:[A-Za-z0-9_-]{30,}$/.test(t))return Promise.reject(new Error('Token нотўғри кўринишда. BotFather берган token шундай бўлади: 7712345678:AAH...'));
+ // oddiy so'rovlar — URL-encoded (bo'sh bo'lsa ham to'g'ri ishlaydi), fayl — multipart
+ var opt=(body instanceof FormData)?{method:'POST',body:body}:{method:'POST',body:new URLSearchParams(body||{})};
+ return fetch('https://api.telegram.org/bot'+t+'/'+method,opt)
+  .catch(function(){throw new Error('Telegram\'га уланиб бўлмади (интернет, VPN ёки reklama-blocker текширинг).');})
+  .then(function(r){return r.text().then(function(txt){var j=null;try{j=JSON.parse(txt);}catch(e){}
+   if(!j)throw new Error('Telegram жавоб бермади (HTTP '+r.status+'). '+(r.status===404?'Token нотўғри.':'Бироздан кейин қайта уриниб кўринг.'));
+   if(!j.ok)throw new Error((j.error_code===401||j.error_code===404?'Token нотўғри — ':'')+(j.description||'Telegram error'));
+   return j.result;});});}
+function tgForm(o){var q={};Object.keys(o||{}).forEach(function(k){q[k]=String(o[k]);});return q;}
+function tgDoc(chat,blob,name,caption){var f=new FormData();f.append('chat_id',String(chat));f.append('document',blob,name);if(caption)f.append('caption',caption);return tgCall('sendDocument',f);}
 function fillTg(){var c=tgCfg();document.getElementById('tg-token').value=c.token||'';document.getElementById('tg-admin').value=c.admin||'';
  document.getElementById('tg-copy').checked=!!c.copy;document.getElementById('tg-auto').checked=!!c.auto;}
-function saveTg(){S.tg=S.tg||{};S.tg.token=val('tg-token');S.tg.admin=val('tg-admin');S.tg.copy=document.getElementById('tg-copy').checked;S.tg.auto=document.getElementById('tg-auto').checked;
+function saveTg(){S.tg=S.tg||{};S.tg.token=val('tg-token');S.tg.token=tgToken();document.getElementById('tg-token').value=S.tg.token;S.tg.admin=val('tg-admin');S.tg.copy=document.getElementById('tg-copy').checked;S.tg.auto=document.getElementById('tg-auto').checked;
  save();document.getElementById('tg-msg').innerHTML='<span class="ok">Сақланди.</span> Энди «Test bot» босинг.';checkBackup();}
 function testTg(){var m=document.getElementById('tg-msg');m.textContent='Текширилмоқда...';
  tgCall('getMe',tgForm({})).then(function(r){m.innerHTML='<span class="ok">✔ Бот ишлаяпти: @'+esc(r.username)+'</span> — driver\'лар шу ботга /start юборсин.';
