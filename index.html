@@ -146,6 +146,21 @@ html,body{background:#fff!important;padding:0!important;margin:0!important}
 #sheets .sheet.measure .badge{font-size:calc(8.5px*var(--u))!important}
 #sheets .sheet.measure select,#sheets .sheet.measure .ctr{display:none!important}
 #sheets .sheet.measure table+table{margin-top:calc(7px*var(--u))!important}
+/* ---- pro additions ---- */
+.shwrap{margin-bottom:18px}
+.shbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--pan);border:1px solid var(--line);border-radius:9px 9px 0 0;padding:8px 10px;margin-bottom:-6px}
+.shbar b{font-size:13px;margin-right:auto}
+.shbar button{padding:6px 11px;font-size:12px}
+.banner{margin-bottom:12px;padding:10px 12px;border:1px dashed var(--amb);border-radius:8px;color:var(--amb);font-weight:600;font-size:13px}
+.banner.red{border-color:var(--red);color:var(--red)}
+.log{font-family:var(--mono);font-size:11.5px;line-height:1.6;max-height:220px;overflow:auto;background:var(--pan2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-top:8px;display:none}
+.ok{color:var(--grn)}.bad{color:var(--red)}.warn{color:var(--amb)}
+td .sm,button.sm{padding:4px 9px;font-size:11.5px}
+.tag{font-family:var(--mono);font-size:10px;padding:1px 6px;border-radius:10px;border:1px solid var(--line);color:var(--dim);margin-left:4px;white-space:nowrap}
+.tag.g{color:var(--grn);border-color:#2f5c45}
+#pdfStage{position:fixed;left:-20000px;top:0;width:816px;background:#fff;z-index:-1}
+#pdfStage .sheet{margin:0;border-radius:0}
+@media print{.shwrap.skip{display:none!important}.shbar{display:none!important}.shwrap{margin:0!important}}
 @media (prefers-color-scheme:light){:root:not([data-theme="light"]){}}
 </style></head>
 <body>
@@ -154,14 +169,18 @@ html,body{background:#fff!important;padding:0!important;margin:0!important}
 <div class="btns"><button onclick="backup()">Backup JSON</button><button onclick="document.getElementById('imp').click()">Restore</button><input id="imp" type="file" accept=".json" style="display:none" onchange="restore(this)"></div></div>
 
 <div class="tabs noprint">
-<div class="tab on" data-v="build" onclick="go('build')">New Statement</div>
+<div class="tab on" data-v="build" onclick="newStmt()">New Statement</div>
 <div class="tab" data-v="drivers" onclick="go('drivers')">Drivers &amp; YTD</div>
 <div class="tab" data-v="hist" onclick="go('hist')">History</div>
+<div class="tab" data-v="rep" onclick="go('rep')">Reports</div>
 <div class="tab" data-v="set" onclick="go('set')">Settings</div>
 </div>
 
+<div id="bkWarn" class="banner red noprint" style="display:none"></div>
 <!-- BUILD -->
 <div id="v-build" class="view noprint">
+ <div id="editNote" class="banner" style="display:none"></div>
+ <div id="backfillNote" style="display:none;margin-bottom:12px;padding:10px 12px;border:1px dashed var(--amb);border-radius:8px;color:var(--amb);font-weight:600"></div>
  <div class="card"><h2>1 · Period &amp; truck</h2>
   <div class="row">
    <div class="f"><label>Payroll ID</label><input id="b-pid" placeholder="2026-14" oninput="this.dataset.auto='0'"></div>
@@ -210,15 +229,73 @@ Also accepts simple lines:  LOADID | Origin | Destination | Miles | Rate"></text
   <div class="row"><div class="f"><label>Address line 1</label><input id="d-a1" placeholder="123 Main st"></div>
   <div class="f"><label>Address line 2</label><input id="d-a2" placeholder="New York, NY 10010"></div>
   <div class="f"><label>Opening YTD gross</label><input id="d-og" type="number" step="0.01" value="0"></div>
-  <div class="f"><label>Opening YTD payout</label><input id="d-op" type="number" step="0.01" value="0"></div></div>
-  <div class="btns"><button class="pri" onclick="addDriver()">Add driver</button></div>
+  <div class="f"><label>Opening YTD payout</label><input id="d-op" type="number" step="0.01" value="0"></div>
+  <div class="f" style="max-width:130px"><label>Opening YTD year</label><input id="d-oy" type="number" placeholder="2026"></div></div>
+  <div class="row"><div class="f"><label>Telegram chat ID</label><input id="d-tg" placeholder="Settings → Telegram → Link drivers"></div></div>
+  <div class="btns"><button class="pri" id="d-save" onclick="addDriver()">Add driver</button><button id="d-cancel" onclick="cancelDrvEdit()" style="display:none">Cancel edit</button></div>
+  <div class="note" style="margin-top:6px">Opening YTD — дастурдан олдинги шу йилдаги сумма. Faqat shu yil YTD'siga qo'shiladi.</div>
  </div>
- <div class="card"><h2>Drivers — lifetime totals</h2><div class="scroll"><table><thead><tr><th>Driver</th><th>Type</th><th class="n">%</th><th class="n">Statements</th><th class="n">YTD gross</th><th class="n">YTD payout</th><th class="n">YTD net pay</th><th></th></tr></thead><tbody id="dbody"></tbody></table></div></div>
+ <div class="card"><h2>Drivers — YTD <select id="drv-year" onchange="renderDrivers()" style="width:auto;margin-left:8px;padding:4px 8px;font-size:12px"></select></h2><div class="scroll"><table><thead><tr><th>Driver</th><th>Type</th><th class="n">%</th><th class="n">Statements</th><th class="n">YTD gross</th><th class="n">YTD payout</th><th class="n">YTD net pay</th><th class="n">Telegram</th><th></th></tr></thead><tbody id="dbody"></tbody></table></div></div>
+
+ <div class="card"><h2>Driver income</h2>
+  <div class="row"><div class="f"><label>Driver</label><select id="inc-drv" onchange="renderIncome()"></select></div>
+  <div class="f" style="max-width:160px"><label>Year</label><select id="inc-year" onchange="renderIncome()"></select></div></div>
+  <div id="incBody"><div class="note">Driver танланг — барча statement'лари шу ерда чиқади.</div></div>
+  <div class="log" id="incLog"></div>
+ </div>
+
+ <div class="card"><h2>Advances · Loans · Escrow</h2>
+  <div class="row"><div class="f"><label>Driver</label><select id="ln-drv"></select></div>
+  <div class="f"><label>Description</label><input id="ln-desc" placeholder="Advance / Loan / Escrow"></div>
+  <div class="f" style="max-width:150px"><label>Total amount</label><input id="ln-total" type="number" step="0.01" placeholder="0 = escrow (no limit)"></div>
+  <div class="f" style="max-width:150px"><label>Weekly deduction</label><input id="ln-week" type="number" step="0.01" placeholder="200"></div>
+  <div class="f" style="max-width:170px"><label>Start week</label><input id="ln-start" type="date"></div></div>
+  <div class="btns"><button class="pri" onclick="addLoan()">Add</button></div>
+  <div class="note" style="margin-top:6px">Ҳар statement'да ҳафталик сумма ўзи ушланади ва қолдиқ кўрсатилади. Қарз тугагач ўзи тўхтайди. Total = 0 бўлса (escrow) чексиз ушланади ва йиғилган сумма кўрсатилади.</div>
+  <div class="scroll" style="margin-top:10px"><table><thead><tr><th>Driver</th><th>Description</th><th class="n">Total</th><th class="n">Weekly</th><th class="n">Paid / held</th><th class="n">Balance</th><th>Status</th><th></th></tr></thead><tbody id="lnbody"></tbody></table></div>
+ </div>
 </div>
 
 <!-- HISTORY -->
 <div id="v-hist" class="view noprint" style="display:none">
+ <div class="card"><h2>Weekly actions</h2>
+  <div class="row"><div class="f"><label>Week</label><select id="wk-sel" onchange="renderWeekInfo()"></select></div></div>
+  <div id="wkInfo" class="note" style="margin-bottom:8px"></div>
+  <div class="btns"><button onclick="weekAct('view')">👁 View all</button><button onclick="weekAct('print')">🖨 Print each (separate PDF)</button><button onclick="weekAct('pdf')">⬇ Download PDFs</button><button class="pri" onclick="weekAct('send')">📤 Send to drivers (Telegram)</button></div>
+  <div class="log" id="wkLog"></div>
+ </div>
+ <div class="card"><h2>Тушиб қолган ҳафта · Missing week</h2>
+  <div id="missList" class="note" style="margin-bottom:12px"></div>
+  <div class="row">
+   <div class="f"><label>Driver</label><select id="h-drv" onchange="hSuggest()"></select></div>
+   <div class="f"><label>Week start</label><input id="h-start" type="date" onchange="hSuggest()"></div>
+   <div class="f"><label>Week end</label><input id="h-end" type="date" disabled></div>
+   <div class="f"><label>Payroll ID</label><input id="h-pid" placeholder="2026 - 9"></div>
+  </div>
+  <div class="btns"><button class="pri" onclick="fillWeek(val('h-drv'),val('h-start'),val('h-pid'))">Шу ҳафтани тўлдириш →</button></div>
+  <div class="note" style="margin-top:6px">Ҳафта ва Payroll ID'ни танланг → New Statement очилади (тўлдирилган ҳолда) → trip'ларни қўйиб <b>Generate</b> → <b>Save</b>. Statement ўз ҳафтасига тушади, кейинги ҳафталарнинг YTD'си ҳам автоматик тўғриланади.</div>
+ </div>
  <div class="card"><h2>Saved statements</h2><div class="scroll"><table><thead><tr><th>Payroll ID</th><th>Driver</th><th>Period</th><th class="n">Trips</th><th class="n">Gross</th><th class="n">Payout</th><th></th></tr></thead><tbody id="hbody"></tbody></table></div></div>
+</div>
+
+<!-- REPORTS -->
+<div id="v-rep" class="view noprint" style="display:none">
+ <div class="card"><h2>Weekly company report</h2>
+  <div class="row"><div class="f" style="max-width:340px"><label>Week</label><select id="rp-wk" onchange="renderWeekly()"></select></div></div>
+  <div id="rpWeekly"></div>
+ </div>
+ <div class="card"><h2>Year-end summary (1099)</h2>
+  <div class="row"><div class="f" style="max-width:160px"><label>Year</label><select id="rp-yr" onchange="renderYear()"></select></div>
+  <div class="f" style="align-self:flex-end"><button onclick="exportYearCSV()">⬇ Export CSV</button></div></div>
+  <div id="rpYear"></div>
+ </div>
+ <div class="card"><h2>Amazon Relay payment check</h2>
+  <div class="note" style="margin-bottom:8px">Relay'дан келган тўлов (payment / remittance) ҳисоботини шу ерга қўйинг (CSV ёки нусха). Ҳар бир load ID statement'лардаги trip билан солиштирилади.</div>
+  <textarea id="rc-raw" placeholder="113K4CTC4  ...  $3,914.00&#10;1116YX1LF, 635.00"></textarea>
+  <div class="row" style="margin-top:8px"><div class="f" style="max-width:180px"><label>Statements from</label><input id="rc-from" type="date"></div><div class="f" style="max-width:180px"><label>to</label><input id="rc-to" type="date"></div>
+  <div class="f" style="align-self:flex-end"><button class="pri" onclick="reconcile()">Compare</button></div></div>
+  <div id="rcOut"></div>
+ </div>
 </div>
 
 <!-- SETTINGS -->
@@ -233,6 +310,16 @@ ELD Device Fee | 7 days | 50
 IFTA Fee | 7 days | 50
 Trailer Charge | 7 days | 300</textarea></div></div>
   <div class="btns"><button class="pri" onclick="saveSet()">Save settings</button><button class="dngr" onclick="wipe()">Erase all data</button></div>
+  <div class="card" style="margin:16px 0 0;background:var(--pan2)"><h2>Telegram bot</h2>
+   <div class="row"><div class="f" style="flex:2;min-width:240px"><label>Bot token (@BotFather)</label><input id="tg-token" type="password" placeholder="123456789:AA..."></div>
+   <div class="f"><label>Admin chat ID (сиз)</label><input id="tg-admin" placeholder="123456789"></div></div>
+   <div class="row"><label style="display:flex;gap:8px;align-items:center;font-size:13px;width:auto"><input type="checkbox" id="tg-copy" style="width:auto"> Statement нусхасини менга ҳам юбор</label>
+   <label style="display:flex;gap:8px;align-items:center;font-size:13px;width:auto"><input type="checkbox" id="tg-auto" style="width:auto"> Ҳар куни backup'ни Telegram'имга юбор</label></div>
+   <div class="btns"><button class="pri" onclick="saveTg()">Save Telegram</button><button onclick="testTg()">Test bot</button><button onclick="linkDrivers()">🔗 Link drivers</button><button onclick="backupTg(true)">Backup → Telegram</button></div>
+   <div class="note" id="tg-msg" style="margin-top:8px"></div>
+   <div id="tg-link" style="margin-top:8px"></div>
+   <div class="note" style="margin-top:6px">1) @BotFather'да бот очинг, token'ни шу ерга қўйинг. 2) Ҳар бир driver ботга <b>/start</b> юборсин. 3) <b>Link drivers</b> босинг ва ҳар бирини ўз driver'ига боғланг. Token фақат шу браузерда сақланади, уни GitHub'га қўйманг.</div>
+  </div>
   <div class="card" style="margin:16px 0 0;background:var(--pan2)"><h2>Google Sheets</h2>
    <div class="row"><div class="f" style="flex:2;min-width:240px"><label>Web app URL (Apps Script)</label><input id="g-url" placeholder="https://script.google.com/macros/s/.../exec"></div>
    <div class="f"><label>Secret (parol)</label><input id="g-sec" type="password" placeholder="Apps Script dagi SECRET"></div></div>
@@ -246,7 +333,7 @@ Trailer Charge | 7 days | 300</textarea></div></div>
 
 <div id="sheetWrap"><div class="btns noprint" style="margin-bottom:12px">
 <select id="pgsize" onchange="applyPageSize()" style="width:auto"><option value="pgLetter">Letter (8.5×11)</option><option value="pgLegal">Legal (8.5×14)</option><option value="pgA4">A4</option></select>
-<button class="pri" id="saveBtn" onclick="saveDraft()" style="display:none">💾 Save statement(s)</button><button class="pri" onclick="window.print()">Print / Save as PDF</button><button class="pri" id="gsBtn" onclick="sendSheets()" style="background:var(--grn);border-color:var(--grn)">📊 Send to Google Sheets</button><button onclick="closeSheet()">Back</button></div><div id="editHint" class="note noprint" style="display:none;margin-bottom:10px;padding:9px;border:1px dashed var(--amb);border-radius:8px">✏️ <b>Contract</b> ustunidagi ro'yxatdan trip'ni <b>100% Solo</b> qilib tanlang. U faqat o'sha driver statement'ida qoladi, ikkinchisidan chiqib ketadi. Tayyor bo'lgach <b>Save</b> bosing.</div><div id="gsMsg" class="note noprint" style="margin-bottom:10px"></div><div id="sheets"></div></div>
+<button class="pri" id="saveBtn" onclick="saveDraft()" style="display:none">💾 Save statement(s)</button><button class="pri" onclick="printEach()">🖨 Print / Save as PDF</button><button onclick="pdfShown()">⬇ Download PDF</button><button class="pri" onclick="sendShown()" style="background:#2a9fd6;border-color:#2a9fd6;color:#fff">📤 Send to driver</button><button class="pri" id="gsBtn" onclick="sendSheets()" style="background:var(--grn);border-color:var(--grn)">📊 Send to Google Sheets</button><button onclick="closeSheet()">Back</button></div><div id="editHint" class="note noprint" style="display:none;margin-bottom:10px;padding:9px;border:1px dashed var(--amb);border-radius:8px">✏️ <b>Contract</b> ustunidagi ro'yxatdan trip'ni <b>100% Solo</b> qilib tanlang. U faqat o'sha driver statement'ida qoladi, ikkinchisidan chiqib ketadi. Tayyor bo'lgach <b>Save</b> bosing.</div><div id="gsMsg" class="note noprint" style="margin-bottom:10px"></div><div class="log noprint" id="shLog" style="margin-bottom:10px"></div><div id="sheets"></div></div>
 </div>
 
 <script>
@@ -254,11 +341,12 @@ var KEY='fl_stmt_v1', S={co:{},drivers:[],stmts:[],ded:''}, TRIPS=[], VIEW='buil
 function money(n){return '$'+(Math.round((n||0)*100)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function esc(s){return (s==null?'':''+s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function load(){try{var r=localStorage.getItem(KEY);if(r)S=JSON.parse(r);}catch(e){}
- S.co=S.co||{};S.drivers=S.drivers||[];S.stmts=S.stmts||[];}
+ S.co=S.co||{};S.drivers=S.drivers||[];S.stmts=S.stmts||[];S.loans=S.loans||[];S.tg=S.tg||{};}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){alert('Could not save locally — export a JSON backup.');}}
-function go(v){VIEW=v;['build','drivers','hist','set'].forEach(function(x){document.getElementById('v-'+x).style.display=x===v?'block':'none';});
+function go(v){VIEW=v;['build','drivers','hist','rep','set'].forEach(function(x){document.getElementById('v-'+x).style.display=x===v?'block':'none';});
  [].forEach.call(document.querySelectorAll('.tab'),function(t){t.classList.toggle('on',t.dataset.v===v);});
- closeSheet();if(v==='drivers')renderDrivers();if(v==='hist')renderHist();}
+ closeSheet();if(v==='drivers'){renderDrivers();renderIncome();renderLoans();}if(v==='hist')renderHist();if(v==='rep')renderReports();if(v==='set')fillTg();
+ checkBackup();}
 /* ---------- settings ---------- */
 function saveSet(){var logo=(S.co&&S.co.logo)||'';
  S.co={name:val('c-name'),phone:val('c-phone'),a1:val('c-a1'),a2:val('c-a2'),solo:+val('c-solo')||90,team:+val('c-team')||50,dispatch:+val('c-dispatch')||0,logo:logo};
@@ -276,19 +364,75 @@ function fillSet(){var c=S.co;['name','phone','a1','a2'].forEach(function(k){doc
  document.getElementById('logoPrev').innerHTML=c.logo?('<img src="'+c.logo+'" style="height:48px;border-radius:6px;border:1px solid var(--line);display:block;margin-bottom:6px"><button onclick="removeLogo()">Remove logo</button>'):'<span class="note">No logo uploaded — statements will show the company name only.</span>';}
 function wipe(){if(confirm('Erase all drivers, statements and settings from this browser?')){localStorage.removeItem(KEY);location.reload();}}
 /* ---------- drivers ---------- */
+var EDIT_DRV=null;
 function addDriver(){var n=val('d-name');if(!n)return alert('Enter a name.');
- S.drivers.push({id:'d'+Date.now(),name:n,type:val('d-type'),pct:+val('d-pct')||90,a1:val('d-a1'),a2:val('d-a2'),og:+val('d-og')||0,op:+val('d-op')||0});
- save();['d-name','d-a1','d-a2'].forEach(function(i){document.getElementById(i).value='';});renderDrivers();fillDriverSelects();}
+ var o={name:n,type:val('d-type'),pct:+val('d-pct')||90,a1:val('d-a1'),a2:val('d-a2'),og:+val('d-og')||0,op:+val('d-op')||0,
+  oy:val('d-oy')||String(new Date().getFullYear()),tg:val('d-tg')};
+ if(EDIT_DRV){var d=drv(EDIT_DRV);if(d)Object.keys(o).forEach(function(k){d[k]=o[k];});}
+ else{o.id='d'+Date.now();S.drivers.push(o);}
+ save();cancelDrvEdit();renderDrivers();fillDriverSelects();}
+function editDriver(id){var d=drv(id);if(!d)return;EDIT_DRV=id;
+ var m={'d-name':d.name,'d-type':d.type||'solo','d-pct':d.pct,'d-a1':d.a1,'d-a2':d.a2,'d-og':d.og||0,'d-op':d.op||0,'d-oy':d.oy||'2026','d-tg':d.tg||''};
+ Object.keys(m).forEach(function(k){document.getElementById(k).value=m[k]==null?'':m[k];});
+ document.getElementById('d-save').textContent='Save driver';document.getElementById('d-cancel').style.display='inline-block';
+ window.scrollTo(0,0);}
+function cancelDrvEdit(){EDIT_DRV=null;['d-name','d-a1','d-a2','d-tg','d-oy'].forEach(function(i){document.getElementById(i).value='';});
+ document.getElementById('d-og').value='0';document.getElementById('d-op').value='0';
+ document.getElementById('d-save').textContent='Add driver';document.getElementById('d-cancel').style.display='none';}
 function delDriver(id){if(!confirm('Remove this driver? Their saved statements stay in History.'))return;
  S.drivers=S.drivers.filter(function(d){return d.id!==id;});save();renderDrivers();fillDriverSelects();}
-function ytd(id){var d=drv(id),g=d?d.og:0,p=d?d.op:0,c=0;
- S.stmts.forEach(function(s){if(s.driverId===id){g+=s.earn;p+=s.payout;c++;}});return{g:g,p:p,c:c};}
+/* YTD: bir driver + bir xil hafta (start/end) uchun faqat ENG OXIRGI saqlangan statement hisoblanadi.
+   YTD har yili (statement'ning Week end yili bo'yicha) noldan boshlanadi. */
+function samePeriod(a,b){return a.driverId===b.driverId&&(a.start||'')===(b.start||'')&&(a.end||'')===(b.end||'');}
+function liveStmts(id){var m={};
+ S.stmts.forEach(function(s){if(s.driverId!==id)return;var k=(s.start||'')+'|'+(s.end||'');
+  if(!m[k]||(s.made||'')>=(m[k].made||''))m[k]=s;});
+ return Object.keys(m).map(function(k){return m[k];});}
+function allLive(){var out=[];S.drivers.forEach(function(d){out=out.concat(liveStmts(d.id));});return out;}
+function yr(s){return (s.end||s.start||'').slice(0,4);}
+function openY(d){return String(d&&d.oy||'2026');}
+function years(){var y={};y[String(new Date().getFullYear())]=1;S.stmts.forEach(function(s){if(yr(s))y[yr(s)]=1;});return Object.keys(y).sort().reverse();}
+function curYear(){var l=allLive().map(yr).filter(Boolean).sort();return l.length?l[l.length-1]:String(new Date().getFullYear());}
+function ytd(id,year){year=year||curYear();var d=drv(id),op=d&&openY(d)===year,g=op?(d.og||0):0,p=op?(d.op||0):0,c=0;
+ liveStmts(id).forEach(function(s){if(yr(s)!==year)return;g+=s.earn;p+=s.payout;c++;});return{g:g,p:p,c:c};}
+/* Statement ustidagi YTD: shu yilning opening + shu haftadan OLDINGI haftalar + shu statement'ning o'zi. */
+function ytdAt(s){var d=drv(s.driverId),year=yr(s),op=d&&openY(d)===year,g=op?(d.og||0):0,p=op?(d.op||0):0,end=s.end||'';
+ liveStmts(s.driverId).forEach(function(x){if(x.id===s.id||samePeriod(x,s)||yr(x)!==year)return;
+  if((x.end||'')<end){g+=x.earn;p+=x.payout;}});
+ return{g:g+(s.earn||0),p:p+(s.payout||0)};}
 function drv(id){return S.drivers.filter(function(d){return d.id===id;})[0];}
-function renderDrivers(){document.getElementById('dbody').innerHTML=S.drivers.map(function(d){var y=ytd(d.id);
- return '<tr><td><b>'+esc(d.name)+'</b><div class="note">'+esc(d.a1||'')+' '+esc(d.a2||'')+'</div></td><td><span class="pill '+d.type+'">'+d.type+'</span></td><td class="n">'+d.pct+'%</td><td class="n">'+y.c+'</td><td class="n">'+money(y.g)+'</td><td class="n">'+money(y.p)+'</td><td class="n">'+money(y.p)+'</td><td><button class="tdel" onclick="delDriver(\''+d.id+'\')">✕</button></td></tr>';}).join('')||'<tr><td colspan="8" class="note">No drivers yet.</td></tr>';}
+function fillYearSel(id,withAll){var el=document.getElementById(id);if(!el)return;var cur=el.value;
+ el.innerHTML=(withAll?'<option value="">All years</option>':'')+years().map(function(y){return '<option>'+y+'</option>';}).join('');
+ if(cur&&[].some.call(el.options,function(o){return o.value===cur;}))el.value=cur;else if(!withAll)el.value=curYear();}
+function renderDrivers(){fillYearSel('drv-year');var Y=val('drv-year')||curYear();
+ document.getElementById('dbody').innerHTML=S.drivers.map(function(d){var y=ytd(d.id,Y);
+ return '<tr><td><b>'+esc(d.name)+'</b><div class="note">'+esc(d.a1||'')+' '+esc(d.a2||'')+'</div></td><td><span class="pill '+d.type+'">'+d.type+'</span></td><td class="n">'+d.pct+'%</td><td class="n">'+y.c+'</td><td class="n">'+money(y.g)+'</td><td class="n">'+money(y.p)+'</td><td class="n">'+money(y.p)+'</td>'+
+ '<td class="n">'+(d.tg?'<span class="ok">✔</span>':'<span class="bad">—</span>')+'</td>'+
+ '<td style="white-space:nowrap"><button class="sm" onclick="editDriver(\''+d.id+'\')">Edit</button><button class="tdel" onclick="delDriver(\''+d.id+'\')">✕</button></td></tr>';}).join('')||'<tr><td colspan="9" class="note">No drivers yet.</td></tr>';}
 function fillDriverSelects(){var o=S.drivers.map(function(d){return '<option value="'+d.id+'">'+esc(d.name)+'</option>';}).join('');
- document.getElementById('b-d1').innerHTML=o;document.getElementById('b-d2').innerHTML='<option value="">— none —</option>'+o;}
+ document.getElementById('b-d1').innerHTML=o;document.getElementById('b-d2').innerHTML='<option value="">— none —</option>'+o;
+ ['h-drv','ln-drv'].forEach(function(i){var h=document.getElementById(i);if(h)h.innerHTML=o;});
+ var ic=document.getElementById('inc-drv');if(ic){var cv=ic.value;ic.innerHTML='<option value="">— select driver —</option>'+o;ic.value=cv;}}
 /* ---------- build ---------- */
+var FORM_SAVED=true;   // oxirgi kiritilgan ma'lumot saqlanganmi
+function formHasData(){return TRIPS.length||val('b-raw')||val('b-fuel')||val('b-cred')||val('b-pid')||val('b-start')||val('b-truck');}
+function resetForm(){
+ ['b-pid','b-start','b-end','b-truck','b-raw','b-fuel','b-cred'].forEach(function(i){var e=document.getElementById(i);e.value='';e.classList.remove('derr');});
+ document.getElementById('b-pid').dataset.auto='1';
+ document.getElementById('b-ded').value=S.ded||document.getElementById('c-ded').value;   // standart deduction'lar Settings'dan
+ document.getElementById('b-type').value='solo';
+ var d1=document.getElementById('b-d1');if(d1.options.length)d1.selectedIndex=0;
+ document.getElementById('b-d2').value='';
+ document.getElementById('parseMsg').textContent='';
+ var em=document.getElementById('dateErr');if(em){em.style.display='none';em.textContent='';}
+ TRIPS=[];DRAFT=null;window.__ALL=null;FORM_SAVED=true;
+ var bn=document.getElementById('backfillNote');if(bn)bn.style.display='none';
+ EDITING=null;var en=document.getElementById('editNote');if(en)en.style.display='none';
+ typeChg();}   // % ni qayta qo'yadi va calc() qiladi
+function newStmt(){
+ if(formHasData()&&!FORM_SAVED&&!confirm('Saqlanmagan ma\'lumotlar o\'chiriladi. Yangi statement boshlansinmi?')){go('build');return;}
+ resetForm();go('build');window.scrollTo(0,0);}
+document.addEventListener('input',function(e){if(e.target.closest&&e.target.closest('#v-build'))FORM_SAVED=false;});
 function typeChg(){var t=document.getElementById('b-type').value;if(t!=='team')TRIPS.forEach(function(x){x.who='team';});
  document.getElementById('d2wrap').style.display=t==='team'?'block':'none';
  document.getElementById('b-pct').value=t==='team'?(S.co.team||50):(S.co.solo||90);calc();}
@@ -331,7 +475,7 @@ function chkDates(quiet){
  if(err&&!quiet)alert('⚠ SANA XATO\n\n'+err+'\n\nTuzatib, qayta Generate qiling.');
  return !err;}
 function whoCounts(){var c={team:0,a:0,b:0};TRIPS.forEach(function(t){if(t.st==='Canceled'&&!t.rate)return;c[t.who==='a'?'a':t.who==='b'?'b':'team']++;});return c;}
-function addTrip(){TRIPS.push({id:'',o:'',d:'',mi:0,rate:0,who:'team'});calc();}
+function addTrip(){FORM_SAVED=false;TRIPS.push({id:'',o:'',d:'',mi:0,rate:0,who:'team'});calc();}
 function editTrip(i,f,v){TRIPS[i][f]=(f==='rate'||f==='mi')?(parseFloat((v+'').replace(/[^0-9.\-]/g,''))||0):v;calc();}
 function delTrip(i){TRIPS.splice(i,1);calc();}
 function parseRaw(){var raw=document.getElementById('b-raw').value;if(!raw.trim())return alert('Paste trip rows first.');
@@ -348,7 +492,7 @@ function parseRaw(){var raw=document.getElementById('b-raw').value;if(!raw.trim(
     d:(pt[1]||'').replace(/^[^A-Za-z0-9]*\d+\s*/,'').trim(),mi:parseInt(mi||0,10),rate:parseFloat((ra||'0').replace(/,/g,'')),
     st:(!ra&&/Canceled/i.test(ch))?'Canceled':'Completed',dr:dv.replace(/\s*,\s*/g,', ')});}}
  if(!out.length)return alert('No trips recognised. Use: LOADID | Origin | Destination | Miles | Rate');
- out.forEach(function(o){o.who='team';});TRIPS=TRIPS.concat(out);
+ out.forEach(function(o){o.who='team';});TRIPS=TRIPS.concat(out);FORM_SAVED=false;
  var cx=out.filter(function(t){return t.st==='Canceled';}).length,
   tm=out.filter(function(t){return (t.dr||'').indexOf(',')>-1;}).length,msg=[];
  msg.push(out.length+' trips parsed');
@@ -410,6 +554,7 @@ function totals(){var pct=(+val('b-pct')||0)/100,gross=0,net=0;
   fuel=+val('b-fuel')||0;
  if(dispFee>0)dd=[{d:'Dispatch Fee ('+dispPct+'% of gross)',m:'',a:dispFee,isDisp:true}].concat(dd);
  if(fuel>0)dd=dd.concat([{d:'Fuel',m:'This week',a:fuel}]);
+ if(document.getElementById('b-type').value!=='team')dd=dd.concat(loanLines(document.getElementById('b-d1').value,val('b-start')));
  var crT=cr.reduce(function(a,b){return a+b.a;},0),ddT=dd.reduce(function(a,b){return a+b.a;},0);
  return {gross:gross,net:net,cr:cr,dd:dd,earn:net+crT,ded:ddT,payout:net+crT-ddT,pct:pct*100};}
 function collect(){
@@ -425,7 +570,7 @@ function collect(){
   cr=isTeam?t.cr.map(function(c){return{d:c.d,m:c.m,a:c.a/n};}):t.cr,
   // dispatch fee endi har bir trip kontraktiga qarab pastda alohida hisoblanadi;
   // b-ded/fuel kabi qo'lda kiritilgan boshqa deduction'lar hali ham tengiga bo'linadi
-  ddOther=t.dd.filter(function(c){return !c.isDisp;}),
+  ddOther=t.dd.filter(function(c){return !c.isDisp&&!c.loanId;}),
   ddOtherSplit=isTeam?ddOther.map(function(c){return{d:c.d,m:c.m,a:c.a/n};}):ddOther,
   crT=cr.reduce(function(a,b){return a+b.a;},0);
  var ALL=TRIPS.map(function(x,i){var c=JSON.parse(JSON.stringify(x));c._k=i;c.who='team';return c;});
@@ -440,7 +585,7 @@ function collect(){
   var gross=mine.reduce(function(a,x){return a+(x.rate||0);},0),
    net=mine.reduce(function(a,x){return a+x.net;},0),
    myDispFee=mine.reduce(function(a,x){return a+x.dispFee;},0),
-   dd=(myDispFee>0?[{d:'Dispatch Fee ('+dispPct+'% of gross)',m:'',a:myDispFee,isDisp:true}]:[]).concat(ddOtherSplit),
+   dd=(myDispFee>0?[{d:'Dispatch Fee ('+dispPct+'% of gross)',m:'',a:myDispFee,isDisp:true}]:[]).concat(ddOtherSplit).concat(loanLines(id,val('b-start'))),
    ddT=dd.reduce(function(a,b){return a+b.a;},0),
    earn=net+crT,payout=earn-ddT;
   return {id:'s'+Date.now()+Math.random().toString(36).slice(2,6),driverId:id,
@@ -474,18 +619,32 @@ function generate(){var st=collect();if(!st)return;
  DRAFT={list:st,all:window.__ALL,save:true};showSheets(st,false);}
 function saveDraft(){
  if(!DRAFT||!DRAFT.save)return;
- var chk=DRAFT.list.map(function(x){return x.trips.length;});
- S.stmts=S.stmts.concat(DRAFT.list);save();renderHist();renderDrivers();
+ // shu driver + shu hafta uchun oldin saqlangan statement (yoki tahrirlanayotgan eski statement) -> ALMASHTIRAMIZ
+ var old=S.stmts.filter(function(x){return DRAFT.list.some(function(n){return samePeriod(x,n);})||(EDITING&&EDITING.indexOf(x.id)>-1);});
+ if(old.length){
+  var silent=EDITING&&old.every(function(x){return EDITING.indexOf(x.id)>-1;});
+  var nm=old.map(function(x){return '• '+((drv(x.driverId)||{name:'?'}).name)+' — '+fmtP(x)+' — '+money(x.payout);}).join('\n');
+  if(!silent&&!confirm('Bu hafta uchun oldin saqlangan statement bor:\n\n'+nm+'\n\nEskisi o\'chirilib, yangisi bilan ALMASHTIRILSINMI?\n(YTD ikki marta qo\'shilmaydi)'))return;
+  sheetsDelete(old);
+  S.stmts=S.stmts.filter(function(x){return old.indexOf(x)<0;});}
+ S.stmts=S.stmts.concat(DRAFT.list);save();renderHist();renderDrivers();FORM_SAVED=true;EDITING=null;
+ var en=document.getElementById('editNote');if(en)en.style.display='none';
  DRAFT.save=false;DRAFT.saved=true;showSheets(DRAFT.list,false,true);
+ autoBackup();
  alert('Statement(s) saqlandi ✔');}
 /* ---------- render sheet ---------- */
-function showSheets(list,isPrev,keep){var sy=window.pageYOffset||0;
- document.getElementById('sheets').innerHTML=list.map(function(s){return sheet(s,isPrev);}).join('');
+function showSheets(list,isPrev,keep){var sy=window.pageYOffset||0;SHOWN=list;SHOWN_PREV=!!isPrev;
+ document.getElementById('sheets').innerHTML=list.map(function(s,i){var d=drv(s.driverId)||{name:'Driver'};
+  var bar='<div class="shbar noprint"><b>'+(i+1)+'. '+esc(d.name)+' <span class="tag">'+esc(s.pid||'')+'</span>'+(s.tgSent?'<span class="tag g">📤 sent</span>':'')+'</b>'+
+   '<button onclick="printEach(['+i+'])">🖨 Print</button><button onclick="pdfOne('+i+')">⬇ PDF</button>'+
+   (isPrev?'':'<button onclick="sendIdx(['+i+'])">📤 Send</button>')+'</div>';
+  return '<div class="shwrap" data-i="'+i+'">'+(list.length>1?bar:'')+sheet(s,isPrev)+'</div>';}).join('');
  [].forEach.call(document.querySelectorAll('.view'),function(v){v.style.display='none';});
  document.getElementById('sheetWrap').style.display='block';
  document.getElementById('pgsize').value=S.pgsize||'pgLetter';applyPageSize();
  var sb=document.getElementById('saveBtn');if(sb)sb.style.display=(DRAFT&&DRAFT.save)?'inline-block':'none';
  var hint=document.getElementById('editHint');if(hint)hint.style.display=(DRAFT&&list.length>1&&!DRAFT.saved)?'block':'none';
+ var lg=document.getElementById('shLog');if(lg&&!keep){lg.style.display='none';lg.innerHTML='';}
  window.scrollTo(0,keep?sy:0);}
 function applyPageSize(){var v=document.getElementById('pgsize').value;
  [].forEach.call(document.querySelectorAll('#sheets .sheet'),function(s){s.style.page=v;});
@@ -495,7 +654,7 @@ function fmtP(s){function f(d){if(!d)return '';var x=new Date(d+'T00:00:00');ret
  return f(s.start)+' – '+f(s.end)+(s.end?', '+s.end.slice(0,4):'');}
 function contractCell(s,t){
  var txt=t.solo?'Percent 100% <span class="mut">(Solo)</span>':'Percent '+s.pct+'% <span class="mut">('+(s.type==='team'?'Team split':'Solo')+')</span>';
- var editable=DRAFT&&DRAFT.list.length>1&&DRAFT.list.indexOf(s)>-1&&t._k!=null;
+ var editable=!PDFMODE&&DRAFT&&!DRAFT.saved&&DRAFT.list.length>1&&DRAFT.list.indexOf(s)>-1&&t._k!=null;
  if(!editable)return txt;
  var who=DRAFT.list.indexOf(s)===0?'a':'b',cur=t.solo?'me':'team';
  // one dropdown per row; changing it applies to BOTH driver statements
@@ -503,8 +662,7 @@ function contractCell(s,t){
   '<option value="team"'+(cur==='team'?' selected':'')+'>50% — Team split</option>'+
   '<option value="'+who+'"'+(cur==='me'?' selected':'')+'>100% — Solo ('+esc((drv(s.driverId)||{name:'this driver'}).name)+')</option>'+
   '<option value="'+(who==='a'?'b':'a')+'">100% — Solo (other driver)</option></select>';}
-function sheet(s,isPrev){var d=drv(s.driverId)||{name:'Driver'},co=S.co,y=ytd(s.driverId);
- if(isPrev){y={g:(d.og||0)+s.earn,p:(d.op||0)+s.payout};}
+function sheet(s,isPrev){var d=drv(s.driverId)||{name:'Driver'},co=S.co,y=ytdAt(s);
  var miTotal=s.trips.reduce(function(a,t){return a+(t.st==='Canceled'?0:(t.mi||0));},0);
  var rows=s.trips.map(function(t,i){return '<tr><td><b>'+(i+1)+'</b><div class="mut">'+esc(t.id)+(t.st==='Canceled'?' · Canceled':'')+'</div></td><td>'+esc(t.o)+'</td><td>'+esc(t.d)+'</td><td class="n">'+(t.mi||'-')+'</td><td class="n">'+money(t.rate)+'</td><td style="white-space:nowrap">'+contractCell(s,t)+'</td><td class="n">'+money(t.net!=null?t.net:t.rate*s.pct/100)+'</td></tr>';}).join('');
  var cr=s.credits.map(function(c){return '<tr><td>'+esc(c.d)+'</td><td><span class="badge">Credit</span></td><td>'+esc(c.m)+'</td><td class="n">'+money(c.a)+'</td></tr>';}).join(''),
@@ -523,14 +681,67 @@ function sheet(s,isPrev){var d=drv(s.driverId)||{name:'Driver'},co=S.co,y=ytd(s.
  (dd?'<h4>Recurring Deductions</h4><div class="tblwrap"><table><thead><tr><th>Description</th><th>Operation Days</th><th class="n">Charge</th></tr></thead><tbody>'+dd+'<tr class="tot"><td colspan="2">Totals:</td><td class="n">'+money(s.dedT)+'</td></tr></tbody></table></div>':'')+
  (isPrev?'<div class="mut" style="margin-top:14px">PREVIEW — not saved, YTD not updated.</div>':'')+'</div>';}
 /* ---------- history ---------- */
-function renderHist(){document.getElementById('hbody').innerHTML=S.stmts.slice().reverse().map(function(s){var d=drv(s.driverId)||{name:'—'};
- return '<tr><td class="mono">'+esc(s.pid)+'</td><td>'+esc(d.name)+'</td><td>'+fmtP(s)+'</td><td class="n">'+s.trips.length+'</td><td class="n">'+money(s.gross)+'</td><td class="n" style="color:var(--grn)">'+money(s.payout)+'</td>'+
- '<td><button onclick="DRAFT=null;showSheets([S.stmts.filter(function(x){return x.id===\''+s.id+'\';})[0]],false)">View</button> <button class="tdel" onclick="delStmt(\''+s.id+'\')">✕</button></td></tr>';}).join('')||'<tr><td colspan="7" class="note">No statements saved yet.</td></tr>';}
-function delStmt(id){if(!confirm('Delete this statement? YTD totals will be reduced.'))return;
- S.stmts=S.stmts.filter(function(s){return s.id!==id;});save();renderHist();renderDrivers();}
+function renderHist(){
+ var live={};S.drivers.forEach(function(d){liveStmts(d.id).forEach(function(x){live[x.id]=1;});});
+ // ҳафта бўйича тартиб: энг янги ҳафта тепада (кейин қўшилган эски ҳафта ҳам ўз жойига тушади)
+ var list=S.stmts.slice().sort(function(a,b){return (b.end||'').localeCompare(a.end||'')||(b.made||'').localeCompare(a.made||'');});
+ document.getElementById('hbody').innerHTML=list.map(function(s){var d=drv(s.driverId)||{name:'—'};
+  var old=drv(s.driverId)&&!live[s.id]?'<div style="color:var(--red);font-size:10.5px">эски нусха — YTD\'да ҳисобланмайди</div>':'';
+ return '<tr'+(old?' style="opacity:.55"':'')+'><td class="mono">'+esc(s.pid)+'</td><td>'+esc(d.name)+old+'</td><td>'+fmtP(s)+'</td><td class="n">'+s.trips.length+'</td><td class="n">'+money(s.gross)+'</td><td class="n" style="color:var(--grn)">'+money(s.payout)+'</td>'+
+ '<td style="white-space:nowrap"><button class="sm" onclick="viewStmt(\''+s.id+'\')">View</button> <button class="sm" onclick="editStmt(\''+s.id+'\')">Edit</button> <button class="tdel" onclick="delStmt(\''+s.id+'\')">✕</button>'+(s.tgSent?'<span class="tag g" title="Telegram">📤</span>':'')+'</td></tr>';}).join('')||'<tr><td colspan="7" class="note">No statements saved yet.</td></tr>';
+ renderMissing();renderWeekSel();}
+/* ---------- missing weeks ---------- */
+function addDays(iso0,n){var d=new Date(iso0+'T00:00:00');return iso(new Date(d.getFullYear(),d.getMonth(),d.getDate()+n));}
+function missingWeeks(){
+ var all=[];S.drivers.forEach(function(d){liveStmts(d.id).forEach(function(x){if(x.start)all.push(x.start);});});
+ if(!all.length)return [];
+ var last=all.sort().slice(-1)[0],out=[];
+ S.drivers.forEach(function(d){
+  var st=liveStmts(d.id).filter(function(x){return x.start;});if(!st.length)return;
+  var have={};st.forEach(function(x){have[x.start]=1;});
+  var first=st.map(function(x){return x.start;}).sort()[0];
+  for(var w=first,g=0;w<=last&&g<200;w=addDays(w,7),g++){if(!have[w])out.push({driverId:d.id,name:d.name,start:w,end:addDays(w,6),pid:suggestPid(d.id,w)});}});
+ return out;}
+function suggestPid(id,start){
+ // олдинги ҳафтанинг payroll ID'сидан ҳисоблайди ("2026 - 8" + 1 ҳафта = "2026 - 9")
+ var prev=liveStmts(id).filter(function(x){return x.start&&x.start<start;}).sort(function(a,b){return a.start<b.start?1:-1;})[0];
+ if(prev){var m=(prev.pid||'').match(/^(\d{4})\s*-\s*(\d+)$/);
+  if(m){var wk=Math.round((new Date(start+'T00:00:00')-new Date(prev.start+'T00:00:00'))/6048e5);return m[1]+' - '+(+m[2]+wk);}}
+ var nx=liveStmts(id).filter(function(x){return x.start&&x.start>start;}).sort(function(a,b){return a.start>b.start?1:-1;})[0];
+ if(nx){var n=(nx.pid||'').match(/^(\d{4})\s*-\s*(\d+)$/);
+  if(n){var wk2=Math.round((new Date(nx.start+'T00:00:00')-new Date(start+'T00:00:00'))/6048e5);if(+n[2]-wk2>0)return n[1]+' - '+(+n[2]-wk2);}}
+ return '';}
+function renderMissing(){var el=document.getElementById('missList');if(!el)return;var m=missingWeeks();
+ el.innerHTML=m.length?('<b style="color:var(--amb)">⚠ Тушиб қолган ҳафталар топилди:</b><table style="margin-top:6px"><tbody>'+m.map(function(x){
+  return '<tr><td>'+esc(x.name)+'</td><td>'+fmtP(x)+'</td><td class="mono">'+esc(x.pid||'—')+'</td><td><button onclick="fillWeek(\''+x.driverId+'\',\''+x.start+'\',\''+esc(x.pid)+'\')">Тўлдириш →</button></td></tr>';}).join('')+'</tbody></table>')
+  :'<span style="color:var(--grn)">✔ Тушиб қолган ҳафта йўқ.</span> Бошқа ҳафта керак бўлса, қуйида қўлда танланг.';}
+function hSuggest(){var st=val('h-start'),id=val('h-drv');
+ document.getElementById('h-end').value=st?addDays(st,6):'';
+ if(st&&id){var g=suggestPid(id,st);if(g)document.getElementById('h-pid').value=g;}}
+function fillWeek(id,start,pid){
+ if(!id)return alert('Driver танланг.');if(!start)return alert('Week start санасини танланг.');
+ if(!validYear(start))return alert('Сана нотўғри.');
+ var ex=S.stmts.filter(function(x){return x.driverId===id&&x.start===start;});
+ if(ex.length&&!confirm('Бу ҳайдовчида '+fmtP(ex[0])+' ҳафтаси учун statement бор. Барибир қайта тўлдирасизми? (сақлаганда эскиси алмаштирилади)'))return;
+ if(formHasData()&&!FORM_SAVED&&!confirm('New Statement\'даги сақланмаган маълумотлар ўчирилади. Давом этамизми?'))return;
+ resetForm();
+ var d=drv(id);document.getElementById('b-d1').value=id;
+ if(d&&d.type==='team'){document.getElementById('b-type').value='team';typeChg();}
+ document.getElementById('b-start').value=start;onStart();
+ if(pid){var p=document.getElementById('b-pid');p.value=pid;p.dataset.auto='0';}
+ FORM_SAVED=true;
+ var bn=document.getElementById('backfillNote');
+ bn.textContent='📅 Тушиб қолган ҳафта: '+(d?d.name:'')+' — '+fmtP({start:start,end:addDays(start,6)})+(pid?' — Payroll '+pid:'')+'. Trip\'ларни қўйиб Generate → Save қилинг.';
+ bn.style.display='block';
+ go('build');window.scrollTo(0,0);}
+function delStmt(id){var s=S.stmts.filter(function(x){return x.id===id;})[0];if(!s)return;
+ if(!confirm('Delete this statement?\n\n'+((drv(s.driverId)||{name:'—'}).name)+' — '+fmtP(s)+' — Payout '+money(s.payout)+'\n\nYTD totals will be reduced.'))return;
+ sheetsDelete([s]);
+ S.stmts=S.stmts.filter(function(s){return s.id!==id;});save();renderHist();renderDrivers();autoBackup();}
 /* ---------- backup ---------- */
 function backup(){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,2)],{type:'application/json'}));
- a.download='statements-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();}
+ a.download='statements-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();
+ S.lastBackup=new Date().toISOString();save();checkBackup();}
 function restore(inp){var f=inp.files[0];if(!f)return;var r=new FileReader();
  r.onload=function(){try{var j=JSON.parse(r.result);if(!confirm('Replace current data with this backup?'))return;S=j;save();location.reload();}catch(e){alert('Not a valid backup file.');}};r.readAsText(f);}
 /* ---------- print: har statement 1 ta varaqqa sig'adi (trip ko'p bo'lsa avtomatik kichrayadi) ---------- */
@@ -544,7 +755,7 @@ function fitPrint(){
  st.textContent='#sheets .sheet{width:'+(PW*96)+'px!important;max-width:'+(PW*96)+'px!important;margin:0!important;padding:0!important;border-radius:0!important;overflow:visible!important}'+
   '#sheets .sheet select,#sheets .sheet .ctr{display:none!important}';
  document.head.appendChild(st);
- [].forEach.call(document.querySelectorAll('#sheets .sheet'),function(sh){
+ [].forEach.call(document.querySelectorAll('#sheets .shwrap:not(.skip) .sheet'),function(sh){
   sh.classList.add('measure');
   var lo=0.4,hi=1.6,best=lo;
   for(var i=0;i<18;i++){var mid=(lo+hi)/2;sh.style.setProperty('--u',mid);
@@ -556,6 +767,19 @@ function fitPrint(){
   sh.style.setProperty('max-height',(PH*96-8)+'px','important');});
 }
 window.addEventListener('beforeprint',fitPrint);
+/* ---------- PDF fayl nomi: "A. Driver, B. Driver - Nov 1 - Nov 7, payroll 14" ---------- */
+var SHOWN=null,SHOWN_PREV=false,ORIG_TITLE=document.title,PDFMODE=false,EDITING=null;
+function shortName(n){var p=(n||'').trim().split(/\s+/);return p.length>1?p[0].charAt(0)+'. '+p.slice(1).join(' '):(p[0]||'Driver');}
+function pdfName(list){
+ if(!list||!list.length)return ORIG_TITLE;var s=list[0];
+ var names=list.map(function(x){return shortName((drv(x.driverId)||{name:'Driver'}).name);}).join(', ');
+ function f(d){if(!d)return '';var x=new Date(d+'T00:00:00');return x.toLocaleDateString('en-US',{month:'short'})+' '+x.getDate();}
+ var num=((s.pid||'').match(/(\d+)\s*$/)||[])[1]||(s.pid||'');
+ return ('Statement - '+names+' - '+f(s.start)+' - '+f(s.end)+(num?', payroll '+num:'')).replace(/[\\/:*?"<>|]/g,'-');}
+window.addEventListener('beforeprint',function(){if(document.getElementById('sheetWrap').style.display==='block'&&SHOWN){
+ var vis=SHOWN.filter(function(x,i){var w=document.querySelector('.shwrap[data-i="'+i+'"]');return !w||!w.classList.contains('skip');});
+ document.title=pdfName(vis.length?vis:SHOWN);}});
+window.addEventListener('afterprint',function(){document.title=ORIG_TITLE;});
 window.addEventListener('afterprint',function(){
  var t=document.getElementById('fitTmp');if(t)t.remove();
  [].forEach.call(document.querySelectorAll('#sheets .sheet'),function(sh){sh.classList.remove('measure');sh.style.removeProperty('--u');sh.style.removeProperty('max-height');});});
@@ -575,9 +799,9 @@ function testG(){var m=document.getElementById('g-msg');m.textContent='Tekshiril
  gpost({statements:[]}).then(function(r){m.innerHTML=r.ok?'<span style="color:var(--grn)">✔ Ulandi. Google Sheets tayyor.</span>':'<span style="color:var(--red)">✘ '+esc(r.error||'Xato')+'</span>';})
  .catch(function(e){m.innerHTML='<span style="color:var(--red)">✘ Ulanib bo\'lmadi: '+esc(e.message)+'</span>';});}
 function toSheetPayload(s){
- var d=drv(s.driverId)||{name:'Driver'},y=ytd(s.driverId),co=S.co||{},
+ var d=drv(s.driverId)||{name:'Driver'},y=ytdAt(s),co=S.co||{},
   miles=s.trips.reduce(function(a,t){return a+(t.st==='Canceled'?0:(t.mi||0));},0);
- return {id:s.id,driverName:d.name,pid:s.pid,period:fmtP(s),truck:s.truck,type:s.type,pct:s.pct,
+ return {id:s.id,driverName:d.name,pid:s.pid,period:fmtP(s),start:s.start||'',end:s.end||'',truck:s.truck,type:s.type,pct:s.pct,
   gross:s.gross,net:s.net,earn:s.earn,dedT:s.dedT,payout:s.payout,miles:miles,ytdGross:y.g,ytdPayout:y.p,
   company:{name:co.name||'',phone:co.phone||'',a1:co.a1||'',a2:co.a2||'',driverAddr1:d.a1||'',driverAddr2:d.a2||''},
   trips:s.trips.map(function(t){return {id:t.id,o:t.o,d:t.d,mi:t.mi||0,rate:t.rate||0,net:(t.net!=null?t.net:t.rate*s.pct/100),solo:!!t.solo,
@@ -600,8 +824,283 @@ function sendSheets(){
   box.innerHTML='<span style="color:var(--grn)">✔ Google Sheets ga yozildi:</span> '+r.results.map(function(z){return '<b>'+esc(z.driver)+'</b> — '+esc(z.status);}).join(' &nbsp;|&nbsp; ')+
    (r.url?' &nbsp; <a href="'+esc(r.url)+'" target="_blank" style="color:var(--amb)">Faylni ochish ↗</a>':'');
  }).catch(function(e){btn.disabled=false;box.innerHTML='<span style="color:var(--red)">✘ Yuborib bo\'lmadi: '+esc(e.message)+'</span>';});}
+/* =====================================================================
+   PRO: edit statement, loans, separate print/PDF, Telegram, backup,
+   weekly tools, driver income, reports
+   ===================================================================== */
+function r2(x){return Math.round((x||0)*100)/100;}
+function byId(id){return S.stmts.filter(function(x){return x.id===id;})[0];}
+function dname(s){return (drv(s.driverId)||{name:'—'}).name;}
+function logTo(id,html,reset){var el=document.getElementById(id);if(!el)return;el.style.display='block';
+ if(reset)el.innerHTML='';el.innerHTML+=html+'<br>';el.scrollTop=el.scrollHeight;}
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
+function download(blob,name){var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();
+ setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},4000);}
+function viewStmt(id){var s=byId(id);if(!s)return;DRAFT=null;showSheets([s],false);}
+function printStmt(id){viewStmt(id);setTimeout(function(){printEach();},300);}
+
+/* ---------- edit a saved statement ---------- */
+function findPartner(s){if(s.type!=='team')return null;var t=Date.parse(s.made||0)||0;
+ var c=S.stmts.filter(function(x){return x.id!==s.id&&x.type==='team'&&x.driverId!==s.driverId&&x.start===s.start&&x.end===s.end;});
+ c.sort(function(a,b){return Math.abs((Date.parse(a.made||0)||0)-t)-Math.abs((Date.parse(b.made||0)||0)-t);});
+ return c[0]&&Math.abs((Date.parse(c[0].made||0)||0)-t)<5*60000?c[0]:null;}
+function tkey(t){return t._k!=null?'k'+t._k:(t.id+'|'+t.o+'|'+t.d+'|'+t.rate);}
+function editStmt(id){var s=byId(id);if(!s)return;
+ if(formHasData()&&!FORM_SAVED&&!confirm('New Statement\'даги сақланмаган маълумотлар ўчирилади. Давом этамизми?'))return;
+ var p=findPartner(s),A=s,B=p;if(p&&S.stmts.indexOf(p)<S.stmts.indexOf(s)){A=p;B=s;}
+ var team=s.type==='team',n=team?2:1;
+ resetForm();
+ document.getElementById('b-type').value=team?'team':'solo';typeChg();
+ document.getElementById('b-d1').value=A.driverId;if(B)document.getElementById('b-d2').value=B.driverId;
+ document.getElementById('b-pct').value=A.pct;
+ var pid=document.getElementById('b-pid');pid.value=A.pid||'';pid.dataset.auto='0';
+ document.getElementById('b-start').value=A.start||'';document.getElementById('b-end').value=A.end||'';
+ document.getElementById('b-truck').value=A.truck||'';
+ var map={},order=[];
+ function add(list,who){(list||[]).forEach(function(t,ix){var k=tkey(t);
+  if(!map[k]){map[k]={id:t.id,o:t.o,d:t.d,mi:t.mi||0,rate:t.rate||0,st:t.st,dr:t.dr,who:'team',_o:t._k!=null?t._k:1000+order.length};order.push(k);}
+  if(t.solo)map[k].who=who;});}
+ add(A.trips,'a');if(B)add(B.trips,'b');
+ TRIPS=order.map(function(k){return map[k];}).sort(function(a,b){return a._o-b._o;}).map(function(t){delete t._o;if(!t.st)delete t.st;if(!t.dr)delete t.dr;return t;});
+ document.getElementById('b-cred').value=(A.credits||[]).map(function(c){return c.d+' | '+(c.m||'')+' | '+r2(c.a*n);}).join('\n');
+ var fuel=0,lines=[];
+ (A.deds||[]).forEach(function(c){if(c.isDisp||c.loanId)return;
+  if(c.d==='Fuel'&&c.m==='This week'){fuel+=c.a*n;return;}lines.push(c.d+' | '+(c.m||'')+' | '+r2(c.a*n));});
+ document.getElementById('b-ded').value=lines.join('\n');
+ document.getElementById('b-fuel').value=fuel?r2(fuel):'';
+ EDITING=[A.id].concat(B?[B.id]:[]);
+ var en=document.getElementById('editNote');en.style.display='block';
+ en.textContent='✏️ Tahrirlanmoqda: '+[A].concat(B?[B]:[]).map(dname).join(' + ')+' — '+fmtP(A)+(A.pid?' — Payroll '+A.pid:'')+
+  '. Тузатинг → Generate → Save. Эски statement ўзи алмаштирилади.'+(team&&!B?' (Team жуфти топилмади — Driver B\'ни танланг.)':'');
+ chkDates(true);calc();FORM_SAVED=true;go('build');window.scrollTo(0,0);}
+
+/* ---------- advances / loans / escrow ---------- */
+function loanPaid(l,exStart){var t=0;liveStmts(l.driverId).forEach(function(x){if(exStart&&x.start===exStart)return;
+ (x.deds||[]).forEach(function(c){if(c.loanId===l.id)t+=c.a;});});return r2(t);}
+function loanLines(id,start){if(!id||!S.loans)return [];var out=[];
+ S.loans.forEach(function(l){if(l.driverId!==id||l.off)return;if(l.start&&start&&start<l.start)return;
+  var paid=loanPaid(l,start),w=+l.weekly||0;if(w<=0)return;
+  if(+l.total>0){var rem=r2(l.total-paid);if(rem<=0.005)return;var a=Math.min(w,rem);
+   out.push({d:l.desc+' (balance '+money(rem-a)+')',m:'Weekly',a:r2(a),loanId:l.id});}
+  else out.push({d:l.desc+' (held to date '+money(paid+w)+')',m:'Weekly',a:w,loanId:l.id});});
+ return out;}
+function addLoan(){var id=val('ln-drv'),d=val('ln-desc'),w=+val('ln-week')||0;
+ if(!id)return alert('Driver танланг.');if(!d)return alert('Description ёзинг.');if(w<=0)return alert('Weekly deduction ёзинг.');
+ S.loans=S.loans||[];S.loans.push({id:'l'+Date.now(),driverId:id,desc:d,total:+val('ln-total')||0,weekly:w,start:val('ln-start'),made:new Date().toISOString()});
+ save();['ln-desc','ln-total','ln-week','ln-start'].forEach(function(i){document.getElementById(i).value='';});renderLoans();calc();}
+function loanToggle(id){var l=(S.loans||[]).filter(function(x){return x.id===id;})[0];if(!l)return;l.off=!l.off;save();renderLoans();calc();}
+function loanDel(id){if(!confirm('Delete? Олдинги statement\'лардаги ушланган суммалар ўзгармайди.'))return;
+ S.loans=(S.loans||[]).filter(function(x){return x.id!==id;});save();renderLoans();calc();}
+function renderLoans(){var el=document.getElementById('lnbody');if(!el)return;
+ el.innerHTML=(S.loans||[]).map(function(l){var paid=loanPaid(l),tot=+l.total||0,bal=tot>0?r2(tot-paid):null,
+  st=l.off?'<span class="warn">Stopped</span>':(tot>0&&bal<=0.005?'<span class="ok">Paid off</span>':'<span class="ok">Active</span>');
+  return '<tr><td>'+esc((drv(l.driverId)||{name:'—'}).name)+'</td><td>'+esc(l.desc)+(l.start?'<div class="note">from '+esc(l.start)+'</div>':'')+'</td><td class="n">'+(tot>0?money(tot):'escrow')+'</td><td class="n">'+money(l.weekly)+'</td><td class="n">'+money(paid)+'</td><td class="n">'+(bal==null?'—':money(bal))+'</td><td>'+st+'</td>'+
+  '<td style="white-space:nowrap"><button class="sm" onclick="loanToggle(\''+l.id+'\')">'+(l.off?'Resume':'Stop')+'</button><button class="tdel" onclick="loanDel(\''+l.id+'\')">✕</button></td></tr>';}).join('')
+  ||'<tr><td colspan="8" class="note">Ҳозирча йўқ.</td></tr>';}
+
+/* ---------- print: har statement alohida PDF ---------- */
+var PQ=null;
+function setSkip(keep){[].forEach.call(document.querySelectorAll('#sheets .shwrap'),function(w){w.classList.toggle('skip',keep!=null&&keep.indexOf(+w.dataset.i)<0);});}
+function printEach(idx){if(!SHOWN||!SHOWN.length)return;var q=idx?idx.slice():SHOWN.map(function(x,i){return i;});
+ function next(){if(!q.length){PQ=null;setSkip(null);return;}var i=q.shift();setSkip([i]);PQ=next;setTimeout(function(){window.print();},80);}
+ next();}
+window.addEventListener('afterprint',function(){if(PQ){var f=PQ;PQ=null;setTimeout(f,500);}});
+
+/* ---------- PDF fayl yaratish (html2canvas + jsPDF) ---------- */
+var LIBS=null;
+function loadLibs(){if(LIBS)return LIBS;
+ function ls(src){return new Promise(function(res,rej){var e=document.createElement('script');e.src=src;e.onload=res;e.onerror=function(){rej(new Error('Кутубхона юкланмади (интернет?): '+src));};document.head.appendChild(e);});}
+ LIBS=Promise.all([window.html2canvas?1:ls('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'),
+  window.jspdf?1:ls('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js')]).catch(function(e){LIBS=null;throw e;});
+ return LIBS;}
+function makePdf(s){return loadLibs().then(function(){
+ var st=document.getElementById('pdfStage');PDFMODE=true;st.innerHTML=sheet(s,false);PDFMODE=false;
+ return html2canvas(st.firstChild,{scale:2,backgroundColor:'#ffffff',logging:false}).then(function(cv){
+  var fmt={pgLetter:'letter',pgLegal:'legal',pgA4:'a4'}[S.pgsize||'pgLetter']||'letter';
+  var pdf=new jspdf.jsPDF({unit:'pt',format:fmt,orientation:'portrait'});
+  var PW=pdf.internal.pageSize.getWidth(),PH=pdf.internal.pageSize.getHeight(),M=28,W=PW-2*M,H=PH-2*M,iw=W,ih=cv.height*W/cv.width;
+  if(ih<=H||H/ih>=0.62){if(ih>H){iw=iw*H/ih;ih=H;}
+   pdf.addImage(cv.toDataURL('image/jpeg',0.92),'JPEG',M+(W-iw)/2,M,iw,ih);}
+  else{var sliceH=Math.floor(cv.width*H/W),y=0,first=true;
+   while(y<cv.height){var h=Math.min(sliceH,cv.height-y),c2=document.createElement('canvas');c2.width=cv.width;c2.height=h;
+    var cx=c2.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,c2.width,h);cx.drawImage(cv,0,y,cv.width,h,0,0,cv.width,h);
+    if(!first)pdf.addPage();pdf.addImage(c2.toDataURL('image/jpeg',0.92),'JPEG',M,M,W,h*W/cv.width);first=false;y+=h;}}
+  st.innerHTML='';
+  return {blob:pdf.output('blob'),name:pdfName([s])+'.pdf'};});});}
+function pdfList(list,logId){if(!list.length)return;logTo(logId,'⏳ PDF tayyorlanmoqda ('+list.length+')...',true);
+ var p=Promise.resolve();
+ list.forEach(function(s){p=p.then(function(){return makePdf(s);}).then(function(r){download(r.blob,r.name);logTo(logId,'<span class="ok">✔</span> '+esc(r.name));return sleep(350);});});
+ return p.then(function(){logTo(logId,'<b class="ok">Тайёр.</b> Браузер «бир нечта файл юклаш»ни сўраса — Allow босинг.');})
+  .catch(function(e){logTo(logId,'<span class="bad">✘ '+esc(e.message)+'</span>');});}
+function pdfOne(i){pdfList([SHOWN[i]],'shLog');}
+function pdfShown(){pdfList(SHOWN||[],'shLog');}
+
+/* ---------- Telegram ---------- */
+function tgCfg(){return S.tg||{};}
+function tgCall(method,form){var t=tgCfg().token;if(!t)return Promise.reject(new Error('Settings → Telegram bot token киритинг.'));
+ return fetch('https://api.telegram.org/bot'+t+'/'+method,{method:'POST',body:form}).then(function(r){return r.json();})
+  .then(function(j){if(!j.ok)throw new Error(j.description||'Telegram error');return j.result;});}
+function tgForm(o){var f=new FormData();Object.keys(o||{}).forEach(function(k){f.append(k,o[k]);});return f;}
+function tgDoc(chat,blob,name,caption){var f=tgForm({chat_id:chat});f.append('document',blob,name);if(caption)f.append('caption',caption);return tgCall('sendDocument',f);}
+function fillTg(){var c=tgCfg();document.getElementById('tg-token').value=c.token||'';document.getElementById('tg-admin').value=c.admin||'';
+ document.getElementById('tg-copy').checked=!!c.copy;document.getElementById('tg-auto').checked=!!c.auto;}
+function saveTg(){S.tg=S.tg||{};S.tg.token=val('tg-token');S.tg.admin=val('tg-admin');S.tg.copy=document.getElementById('tg-copy').checked;S.tg.auto=document.getElementById('tg-auto').checked;
+ save();document.getElementById('tg-msg').innerHTML='<span class="ok">Сақланди.</span> Энди «Test bot» босинг.';checkBackup();}
+function testTg(){var m=document.getElementById('tg-msg');m.textContent='Текширилмоқда...';
+ tgCall('getMe',tgForm({})).then(function(r){m.innerHTML='<span class="ok">✔ Бот ишлаяпти: @'+esc(r.username)+'</span> — driver\'лар шу ботга /start юборсин.';
+  if(tgCfg().admin)return tgCall('sendMessage',tgForm({chat_id:tgCfg().admin,text:'✅ Statement Builder уланди.'})).then(function(){m.innerHTML+='<br><span class="ok">✔ Админга тест хабар юборилди.</span>';});})
+ .catch(function(e){m.innerHTML='<span class="bad">✘ '+esc(e.message)+'</span>';});}
+function linkDrivers(){var box=document.getElementById('tg-link');box.innerHTML='<span class="note">Юкланмоқда...</span>';
+ tgCall('getUpdates',tgForm({limit:100})).then(function(u){var seen={};
+  u.forEach(function(x){var m=x.message||x.edited_message||(x.callback_query&&x.callback_query.message&&{chat:x.callback_query.from,from:x.callback_query.from});
+   if(!m||!m.chat||(m.chat.type&&m.chat.type!=='private'))return;var f=m.from||m.chat;
+   seen[m.chat.id]={id:m.chat.id,name:((f.first_name||'')+' '+(f.last_name||'')).trim(),user:f.username||''};});
+  var L=Object.keys(seen).map(function(k){return seen[k];});
+  if(!L.length){box.innerHTML='<span class="warn">Ҳеч ким топилмади. Driver\'лар ботга /start юборсин, кейин яна босинг. (Telegram охирги 24 соатдаги хабарларни беради.)</span>';return;}
+  box.innerHTML='<table><thead><tr><th>Telegram user</th><th>Chat ID</th><th>Driver</th><th></th></tr></thead><tbody>'+L.map(function(x){
+   var cur=S.drivers.filter(function(d){return String(d.tg)===String(x.id);})[0],
+    guess=cur||S.drivers.filter(function(d){var a=d.name.toLowerCase(),f=(x.name.split(' ')[0]||'#').toLowerCase();return f.length>2&&a.indexOf(f)>-1;})[0];
+   return '<tr><td>'+esc(x.name)+(x.user?' <span class="note">@'+esc(x.user)+'</span>':'')+'</td><td class="mono">'+x.id+'</td><td><select id="lk-'+x.id+'"><option value="">—</option>'+
+    S.drivers.map(function(d){return '<option value="'+d.id+'"'+(guess&&guess.id===d.id?' selected':'')+'>'+esc(d.name)+'</option>';}).join('')+'</select></td>'+
+    '<td>'+(cur?'<span class="ok">✔ linked</span> ':'')+'<button class="sm pri" onclick="linkOne(\''+x.id+'\')">Link</button></td></tr>';}).join('')+'</tbody></table>';})
+ .catch(function(e){box.innerHTML='<span class="bad">✘ '+esc(e.message)+'</span>'+(/webhook/i.test(e.message)?'<div class="note">Ботда webhook ўрнатилган. Шу сайт учун алоҳида бот очинг ёки driver chat ID\'ни Drivers → Edit орқали қўлда ёзинг.</div>':'');});}
+function linkOne(chat){var id=val('lk-'+chat);if(!id)return alert('Driver танланг.');
+ S.drivers.forEach(function(d){if(String(d.tg)===String(chat))d.tg='';});var d=drv(id);d.tg=String(chat);save();renderDrivers();
+ tgCall('sendMessage',tgForm({chat_id:chat,text:'✅ '+d.name+', сиз '+(S.co.name||'')+' statement\'ларини шу ерда оласиз.'})).catch(function(){});
+ linkDrivers();}
+function tgCaption(s){return '📄 Settlement Statement\n'+dname(s)+'\nPeriod: '+fmtP(s)+'\nPayroll ID: '+(s.pid||'-')+'\nTrips: '+s.trips.length+'\nPayout: '+money(s.payout)+(S.co.name?'\n— '+S.co.name:'');}
+function sendList(list,logId){
+ if(DRAFT&&DRAFT.save&&list.some(function(s){return DRAFT.list.indexOf(s)>-1;}))return alert('Аввал 💾 Save statement(s) босинг.');
+ if(!tgCfg().token)return alert('Settings → Telegram bot: token киритинг.');
+ var ok=list.filter(function(s){return (drv(s.driverId)||{}).tg;}),no=list.filter(function(s){return !(drv(s.driverId)||{}).tg;}),
+  again=ok.filter(function(s){return s.tgSent;});
+ if(!ok.length)return alert('Бу driver\'лар Telegram\'га уланмаган:\n'+no.map(dname).join('\n')+'\n\nSettings → Telegram → Link drivers.');
+ if(!confirm('Telegram орқали юборилсинми? Ҳар бир driver фақат ЎЗ statement PDF\'ини олади.\n\n'+ok.map(function(s){return '• '+dname(s)+' — '+fmtP(s)+' — '+money(s.payout)+(s.tgSent?'  (олдин юборилган)':'');}).join('\n')+
+  (no.length?'\n\nУланмаган (юборилмайди):\n'+no.map(function(s){return '• '+dname(s);}).join('\n'):'')+(again.length?'\n\n⚠ '+again.length+' таси олдин юборилган, қайта юборилади.':'')))return;
+ logTo(logId,'⏳ Юборилмоқда...',true);var c=tgCfg(),sent=0,p=Promise.resolve();
+ ok.forEach(function(s){var d=drv(s.driverId);
+  p=p.then(function(){return makePdf(s);}).then(function(r){
+   return tgDoc(d.tg,r.blob,r.name,tgCaption(s)).then(function(){
+    s.tgSent=new Date().toISOString();sent++;save();logTo(logId,'<span class="ok">✔</span> '+esc(d.name)+' — '+esc(r.name));
+    if(c.copy&&c.admin&&String(c.admin)!==String(d.tg))return tgDoc(c.admin,r.blob,r.name,'📋 Copy → '+tgCaption(s)).catch(function(){});});})
+  .catch(function(e){logTo(logId,'<span class="bad">✘ '+esc(d.name)+': '+esc(e.message)+'</span>');}).then(function(){return sleep(400);});});
+ no.forEach(function(s){logTo(logId,'<span class="warn">— '+esc(dname(s))+': Telegram уланмаган</span>');});
+ return p.then(function(){logTo(logId,'<b class="ok">Тайёр: '+sent+' та юборилди.</b>');renderHist();if(SHOWN&&document.getElementById('sheetWrap').style.display==='block')showSheets(SHOWN,SHOWN_PREV,true);});}
+function sendIdx(idx){sendList(idx.map(function(i){return SHOWN[i];}),'shLog');}
+function sendShown(){if(SHOWN_PREV)return alert('Бу preview. Аввал Generate → Save қилинг.');sendList(SHOWN||[],'shLog');}
+
+/* ---------- backup ---------- */
+function backupTg(manual){var c=tgCfg();if(!c.token||!c.admin){if(manual)alert('Settings → Telegram: token ва Admin chat ID киритинг.');return Promise.resolve();}
+ var name='statements-backup-'+new Date().toISOString().slice(0,10)+'.json';
+ return tgDoc(c.admin,new Blob([JSON.stringify(S,null,2)],{type:'application/json'}),name,'💾 Statement Builder backup — '+S.stmts.length+' statements, '+S.drivers.length+' drivers')
+  .then(function(){S.lastBackup=S.tg.lastAuto=new Date().toISOString();save();checkBackup();if(manual)alert('✔ Backup Telegram\'га юборилди.');})
+  .catch(function(e){if(manual)alert('✘ '+e.message);});}
+function autoBackup(){var c=tgCfg();if(!c.auto||!c.token||!c.admin)return;if(c.lastAuto&&Date.now()-Date.parse(c.lastAuto)<20*3600e3)return;backupTg(false);}
+function checkBackup(){var el=document.getElementById('bkWarn');if(!el)return;
+ var lb=S.lastBackup?Date.parse(S.lastBackup):0,days=lb?Math.floor((Date.now()-lb)/864e5):null;
+ if(S.stmts.length&&(days===null||days>=7)){el.style.display='block';
+  el.innerHTML='⚠ '+(days===null?'Ҳали backup қилинмаган.':'Охирги backup '+days+' кун олдин қилинган.')+' Барча маълумот фақат шу браузерда сақланади → '+
+   '<a href="#" onclick="backup();return false" style="color:inherit">Backup JSON</a>'+(tgCfg().token&&tgCfg().admin?' ёки <a href="#" onclick="backupTg(true);return false" style="color:inherit">Telegram\'га backup</a>':'');}
+ else el.style.display='none';}
+
+/* ---------- Google Sheets: o'chirilgan / almashtirilgan statement ---------- */
+function sheetsDelete(list){var g=S.g||{},ids=list.filter(function(x){return x.sent;}).map(function(x){return x.id;});
+ if(!g.url||!g.sec||!ids.length)return;
+ var box=document.getElementById('gsMsg');
+ gpost({statements:[],action:'delete',ids:ids}).then(function(r){
+  if(!box)return;
+  if(r&&r.ok&&r.results&&r.results.length)box.innerHTML='<span class="ok">✔ Google Sheets: эски statement ўчирилди ('+r.results.filter(function(x){return x.status!=='topilmadi';}).length+').</span> Янгисини <b>📊 Send to Google Sheets</b> билан юборинг.';
+  else if(r&&r.ok)box.innerHTML='<span class="warn">⚠ Google Sheets: Apps Script эски версияда — statements.gs v2\'ни ўрнатинг.</span>';
+ }).catch(function(e){if(box)box.innerHTML='<span class="bad">✘ Google Sheets\'дан ўчириб бўлмади: '+esc(e.message)+'</span>';});}
+
+/* ---------- weekly tools ---------- */
+function weekList(){var m={};allLive().forEach(function(s){if(!s.start)return;var k=s.start;
+  if(!m[k])m[k]={start:s.start,end:s.end,pids:{},list:[]};m[k].list.push(s);if(s.pid)m[k].pids[s.pid.replace(/\s+/g,' ')]=1;});
+ return Object.keys(m).sort().reverse().map(function(k){return m[k];});}
+function weekStmts(start){return allLive().filter(function(s){return s.start===start;}).sort(function(a,b){return dname(a).localeCompare(dname(b));});}
+function renderWeekSel(){var W=weekList();['wk-sel','rp-wk'].forEach(function(id){var el=document.getElementById(id);if(!el)return;var cur=el.value;
+ el.innerHTML=W.map(function(w){return '<option value="'+w.start+'">'+fmtP(w)+' — Payroll '+esc(Object.keys(w.pids).join(', '))+' ('+w.list.length+')</option>';}).join('')||'<option value="">— no statements —</option>';
+ if(cur&&[].some.call(el.options,function(o){return o.value===cur;}))el.value=cur;});renderWeekInfo();}
+function renderWeekInfo(){var el=document.getElementById('wkInfo');if(!el)return;var l=weekStmts(val('wk-sel'));
+ el.innerHTML=l.map(function(s){var d=drv(s.driverId)||{};return esc(d.name)+' <span class="mono">'+money(s.payout)+'</span>'+(d.tg?'':' <span class="bad" title="Telegram уланмаган">✈✕</span>')+(s.tgSent?' <span class="tag g">📤 sent</span>':'');}).join(' &nbsp;·&nbsp; ');}
+function weekAct(a){var l=weekStmts(val('wk-sel'));if(!l.length)return alert('Ҳафта танланг.');
+ if(a==='view'){DRAFT=null;showSheets(l,false);}
+ else if(a==='print'){DRAFT=null;showSheets(l,false);setTimeout(function(){printEach();},300);}
+ else if(a==='pdf')pdfList(l,'wkLog');
+ else if(a==='send')sendList(l,'wkLog');}
+
+/* ---------- driver income ---------- */
+var INC=[];
+function renderIncome(){fillYearSel('inc-year',true);var id=val('inc-drv'),Y=val('inc-year'),box=document.getElementById('incBody');if(!box)return;
+ if(!id){box.innerHTML='<div class="note">Driver танланг — барча statement\'лари шу ерда чиқади.</div>';INC=[];return;}
+ INC=liveStmts(id).filter(function(s){return !Y||yr(s)===Y;}).sort(function(a,b){return (b.end||'').localeCompare(a.end||'');});
+ var T={g:0,e:0,d:0,p:0,mi:0,t:0};INC.forEach(function(s){T.g+=s.gross;T.e+=s.earn;T.d+=s.dedT;T.p+=s.payout;T.t+=s.trips.length;
+  T.mi+=s.trips.reduce(function(a,t){return a+(t.st==='Canceled'?0:(t.mi||0));},0);});
+ var y=Y?ytd(id,Y):null;
+ box.innerHTML='<div class="kpi" style="margin-bottom:12px"><div><span>Statements</span><b>'+INC.length+'</b></div><div><span>Trips / miles</span><b>'+T.t+' / '+T.mi.toLocaleString('en-US')+'</b></div><div><span>Trip gross</span><b>'+money(T.g)+'</b></div><div><span>Earning</span><b>'+money(T.e)+'</b></div><div><span>Deductions</span><b style="color:var(--red)">'+money(T.d)+'</b></div><div><span>Payout</span><b style="color:var(--grn)">'+money(T.p)+'</b></div>'+
+  (y?'<div><span>YTD payout '+Y+' (incl. opening)</span><b>'+money(y.p)+'</b></div>':'')+'</div>'+
+  '<div class="btns" style="margin-bottom:10px"><button onclick="incAll(\'view\')">👁 View all</button><button onclick="incAll(\'pdf\')">⬇ All PDFs</button><button onclick="incAll(\'send\')">📤 Send all</button></div>'+
+  '<div class="scroll"><table><thead><tr><th>Payroll</th><th>Period</th><th class="n">Trips</th><th class="n">Gross</th><th class="n">Earning</th><th class="n">Deductions</th><th class="n">Payout</th><th class="n">YTD payout</th><th></th></tr></thead><tbody>'+
+  (INC.map(function(s,i){return '<tr><td class="mono">'+esc(s.pid)+'</td><td>'+fmtP(s)+'</td><td class="n">'+s.trips.length+'</td><td class="n">'+money(s.gross)+'</td><td class="n">'+money(s.earn)+'</td><td class="n">'+money(s.dedT)+'</td><td class="n" style="color:var(--grn)">'+money(s.payout)+'</td><td class="n">'+money(ytdAt(s).p)+'</td>'+
+   '<td style="white-space:nowrap"><button class="sm" onclick="viewStmt(\''+s.id+'\')">View</button> <button class="sm" onclick="printStmt(\''+s.id+'\')">🖨</button> <button class="sm" onclick="pdfList([INC['+i+']],\'incLog\')">⬇</button> <button class="sm" onclick="sendList([INC['+i+']],\'incLog\')">📤</button>'+(s.tgSent?'<span class="tag g">sent</span>':'')+'</td></tr>';}).join('')||'<tr><td colspan="9" class="note">Statement йўқ.</td></tr>')+
+  '</tbody></table></div>';}
+function incAll(a){if(!INC.length)return;if(a==='view'){DRAFT=null;showSheets(INC.slice(),false);}else if(a==='pdf')pdfList(INC.slice(),'incLog');else sendList(INC.slice(),'incLog');}
+
+/* ---------- reports ---------- */
+function renderReports(){renderWeekSel();fillYearSel('rp-yr');renderWeekly();renderYear();}
+function tripKey(t){return (t.id||'')+'|'+(t.o||'')+'|'+(t.d||'');}
+function renderWeekly(){var box=document.getElementById('rpWeekly');if(!box)return;var l=weekStmts(val('rp-wk'));
+ if(!l.length){box.innerHTML='<div class="note">Statement йўқ.</div>';return;}
+ var U={},tr={},T={p:0,disp:0,oth:0,e:0};
+ l.forEach(function(s){var tk=s.truck||'—';tr[tk]=tr[tk]||{u:{},p:0};tr[tk].p+=s.payout;T.p+=s.payout;T.e+=s.earn;
+  s.deds.forEach(function(c){if(c.isDisp)T.disp+=c.a;else T.oth+=c.a;});
+  s.trips.forEach(function(t){var k=tripKey(t);U[k]=t;tr[tk].u[k]=t;});});
+ function sum(m,f){return Object.keys(m).reduce(function(a,k){return a+f(m[k]);},0);}
+ var G=sum(U,function(t){return t.rate||0;}),MI=sum(U,function(t){return t.st==='Canceled'?0:(t.mi||0);});
+ var rows=l.map(function(s){var disp=s.deds.filter(function(c){return c.isDisp;}).reduce(function(a,c){return a+c.a;},0);
+  return '<tr><td>'+esc(dname(s))+'</td><td class="mono">'+esc(s.truck||'—')+'</td><td><span class="pill '+s.type+'">'+s.type+'</span></td><td class="n">'+s.trips.length+'</td><td class="n">'+money(s.gross)+'</td><td class="n">'+money(s.earn)+'</td><td class="n">'+money(disp)+'</td><td class="n">'+money(s.dedT-disp)+'</td><td class="n" style="color:var(--grn)">'+money(s.payout)+'</td></tr>';}).join('');
+ var trucks=Object.keys(tr).sort().map(function(k){var g=sum(tr[k].u,function(t){return t.rate||0;}),mi=sum(tr[k].u,function(t){return t.st==='Canceled'?0:(t.mi||0);});
+  return '<tr><td class="mono">'+esc(k)+'</td><td class="n">'+Object.keys(tr[k].u).length+'</td><td class="n">'+mi.toLocaleString('en-US')+'</td><td class="n">'+money(g)+'</td><td class="n">'+(mi?'$'+(g/mi).toFixed(2):'—')+'</td><td class="n">'+money(tr[k].p)+'</td><td class="n">'+money(g-tr[k].p)+'</td></tr>';}).join('');
+ box.innerHTML='<div class="kpi" style="margin-bottom:12px"><div><span>Loads (unique)</span><b>'+Object.keys(U).length+'</b></div><div><span>Gross (unique loads)</span><b>'+money(G)+'</b></div><div><span>Miles / RPM</span><b>'+MI.toLocaleString('en-US')+' / '+(MI?'$'+(G/MI).toFixed(2):'—')+'</b></div><div><span>Dispatch fees</span><b>'+money(T.disp)+'</b></div><div><span>Other deductions</span><b>'+money(T.oth)+'</b></div><div><span>Driver payouts</span><b style="color:var(--grn)">'+money(T.p)+'</b></div><div><span>Company retained</span><b style="color:var(--amb)">'+money(G-T.p)+'</b></div></div>'+
+  '<div class="scroll"><table><thead><tr><th>Driver</th><th>Truck</th><th>Type</th><th class="n">Trips</th><th class="n">Trip gross</th><th class="n">Earning</th><th class="n">Dispatch</th><th class="n">Other ded.</th><th class="n">Payout</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+  '<h2 style="margin-top:16px">By truck</h2><div class="scroll"><table><thead><tr><th>Truck</th><th class="n">Loads</th><th class="n">Miles</th><th class="n">Gross</th><th class="n">RPM</th><th class="n">Payouts</th><th class="n">Retained</th></tr></thead><tbody>'+trucks+'</tbody></table></div>'+
+  '<div class="note" style="margin-top:6px">Team load иккала driver statement\'ида туради — gross ва miles бир марта ҳисобланади. Retained = gross − driver payouts.</div>';}
+function yearRows(Y){return S.drivers.map(function(d){var op=openY(d)===Y,l=liveStmts(d.id).filter(function(s){return yr(s)===Y;}),
+  e=0,dd=0,p=0,g=0;l.forEach(function(s){g+=s.gross;e+=s.earn;dd+=s.dedT;p+=s.payout;});
+  return {d:d,n:l.length,og:op?(d.og||0):0,op:op?(d.op||0):0,g:g,e:e,dd:dd,p:p};}).filter(function(r){return r.n||r.og||r.op;});}
+function renderYear(){var box=document.getElementById('rpYear');if(!box)return;var Y=val('rp-yr')||curYear(),R=yearRows(Y),T={og:0,e:0,dd:0,p:0,op:0};
+ R.forEach(function(r){T.og+=r.og;T.e+=r.e;T.dd+=r.dd;T.p+=r.p;T.op+=r.op;});
+ box.innerHTML='<div class="scroll"><table><thead><tr><th>Driver</th><th class="n">Statements</th><th class="n">Opening earn.</th><th class="n">Earnings (app)</th><th class="n">YTD gross</th><th class="n">Deductions</th><th class="n">Opening payout</th><th class="n">Payout (app)</th><th class="n">YTD payout</th></tr></thead><tbody>'+
+  R.map(function(r){return '<tr><td><b>'+esc(r.d.name)+'</b><div class="note">'+esc(r.d.a1||'')+' '+esc(r.d.a2||'')+'</div></td><td class="n">'+r.n+'</td><td class="n">'+money(r.og)+'</td><td class="n">'+money(r.e)+'</td><td class="n"><b>'+money(r.og+r.e)+'</b></td><td class="n">'+money(r.dd)+'</td><td class="n">'+money(r.op)+'</td><td class="n">'+money(r.p)+'</td><td class="n" style="color:var(--grn)"><b>'+money(r.op+r.p)+'</b></td></tr>';}).join('')+
+  '<tr style="font-weight:700"><td>Total</td><td></td><td class="n">'+money(T.og)+'</td><td class="n">'+money(T.e)+'</td><td class="n">'+money(T.og+T.e)+'</td><td class="n">'+money(T.dd)+'</td><td class="n">'+money(T.op)+'</td><td class="n">'+money(T.p)+'</td><td class="n">'+money(T.op+T.p)+'</td></tr></tbody></table></div>'+
+  '<div class="note" style="margin-top:6px">1099-NEC учун одатда «YTD gross» (жами earning, deductions\'дан олдин) ишлатилади — бухгалтерингиз билан текширинг.</div>';}
+function exportYearCSV(){var Y=val('rp-yr')||curYear(),R=yearRows(Y);
+ var q=function(v){v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
+ var lines=[['Driver','Address','Statements','Opening earnings','Earnings (app)','YTD gross','Deductions','Opening payout','Payout (app)','YTD payout'].join(',')].concat(R.map(function(r){
+  return [r.d.name,(r.d.a1||'')+' '+(r.d.a2||''),r.n,r2(r.og),r2(r.e),r2(r.og+r.e),r2(r.dd),r2(r.op),r2(r.p),r2(r.op+r.p)].map(q).join(',');}));
+ download(new Blob([lines.join('\n')],{type:'text/csv'}),'year-end-'+Y+'.csv');}
+function reconcile(){var raw=document.getElementById('rc-raw').value,out=document.getElementById('rcOut');if(!raw.trim())return alert('Тўлов ҳисоботини қўйинг.');
+ var from=val('rc-from'),to=val('rc-to'),known={},exp={};
+ allLive().forEach(function(s){s.trips.forEach(function(t){if(!t.id)return;var k=t.id.toUpperCase().trim();known[k]=1;
+  if((from&&s.start<from)||(to&&s.start>to))return;if(!exp[k])exp[k]={id:t.id,rate:t.rate||0,o:t.o,d:t.d,per:fmtP(s),st:t.st};});});
+ var paid={},extra=[];
+ raw.split(/\n/).forEach(function(line){var U=line.toUpperCase(),toks=U.match(/[A-Z0-9][A-Z0-9-]{5,14}/g)||[];
+  var am=(line.match(/-?\$?\s?\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|-?\$?\s?\d+\.\d{1,2}/g)||[]).map(function(x){return parseFloat(x.replace(/[$,\s]/g,''));}),
+   amt=am.length?am[am.length-1]:0,hit=toks.filter(function(t){return known[t];});
+  if(hit.length)hit.forEach(function(h){paid[h]=r2((paid[h]||0)+amt);});
+  else{var c=toks.filter(function(t){return /^(T-)?\d{2,4}[A-Z0-9]{5,9}$/.test(t)&&/[A-Z]/.test(t.replace(/^T-/,''));});if(c.length)extra.push({id:c[0],a:amt});}});
+ var ok=[],diff=[],miss=[],E=0,P=0;
+ Object.keys(exp).forEach(function(k){var t=exp[k];E+=t.rate;
+  if(paid[k]==null){if(t.rate>0)miss.push(t);return;}P+=paid[k];
+  if(Math.abs(paid[k]-t.rate)<0.01)ok.push(t);else diff.push({t:t,p:paid[k]});});
+ function tbl(h,rows){return rows?'<div class="scroll"><table><thead><tr>'+h+'</tr></thead><tbody>'+rows+'</tbody></table></div>':'';}
+ out.innerHTML='<div class="kpi" style="margin:12px 0"><div><span>Expected (statements)</span><b>'+money(E)+'</b></div><div><span>Paid (matched)</span><b>'+money(P)+'</b></div><div><span>✔ OK</span><b class="ok">'+ok.length+'</b></div><div><span>≠ Amount differs</span><b class="warn">'+diff.length+'</b></div><div><span>✘ Not in payment</span><b class="bad">'+miss.length+'</b></div><div><span>? Not in statements</span><b>'+extra.length+'</b></div></div>'+
+  (diff.length?'<h2 class="warn">Сумма фарқ қилади</h2>'+tbl('<th>Load</th><th>Period</th><th>Route</th><th class="n">Statement</th><th class="n">Paid</th><th class="n">Diff</th>',diff.map(function(x){return '<tr><td class="mono">'+esc(x.t.id)+'</td><td>'+x.t.per+'</td><td>'+esc(x.t.o)+' → '+esc(x.t.d)+'</td><td class="n">'+money(x.t.rate)+'</td><td class="n">'+money(x.p)+'</td><td class="n '+(x.p<x.t.rate?'bad':'ok')+'">'+money(x.p-x.t.rate)+'</td></tr>';}).join('')):'')+
+  (miss.length?'<h2 class="bad" style="margin-top:14px">Тўловда йўқ (тўланмаган бўлиши мумкин)</h2>'+tbl('<th>Load</th><th>Period</th><th>Route</th><th class="n">Rate</th>',miss.map(function(t){return '<tr><td class="mono">'+esc(t.id)+'</td><td>'+t.per+'</td><td>'+esc(t.o)+' → '+esc(t.d)+'</td><td class="n">'+money(t.rate)+'</td></tr>';}).join('')):'')+
+  (extra.length?'<h2 style="margin-top:14px">Тўловда бор, лекин statement\'да йўқ</h2>'+tbl('<th>Load</th><th class="n">Paid</th>',extra.map(function(x){return '<tr><td class="mono">'+esc(x.id)+'</td><td class="n">'+money(x.a)+'</td></tr>';}).join('')):'')+
+  '<div class="note" style="margin-top:6px">Бир қаторда бир нечта сумма бўлса, охиргиси (одатда total) олинади. Сана оралиғи бўш бўлса — барча statement\'лар.</div>';}
 /* ---------- init ---------- */
 load();fillSet();fillG();fillDriverSelects();
 document.getElementById('b-ded').value=S.ded||document.getElementById('c-ded').value;
-typeChg();calc();renderDrivers();renderHist();
-</script></body></html>
+typeChg();calc();renderDrivers();renderHist();checkBackup();
+</script><div id="pdfStage"></div></body></html>
