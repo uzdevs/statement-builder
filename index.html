@@ -161,6 +161,25 @@ td .sm,button.sm{padding:4px 9px;font-size:11.5px}
 #pdfStage{position:fixed;left:-20000px;top:0;width:816px;background:#fff;z-index:-1}
 #pdfStage .sheet{margin:0;border-radius:0}
 @media print{.shwrap.skip{display:none!important}.shbar{display:none!important}.shwrap{margin:0!important}}
+/* ---- telefon (Android/iPhone) ---- */
+@media screen and (max-width:640px){
+ .tabs{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px}
+ .tabs::-webkit-scrollbar{display:none}
+ .tab{white-space:nowrap;flex-shrink:0}
+ #sheets .sheet{padding:18px 12px}
+ #sheets .sh-top{flex-direction:column;gap:12px}
+ #sheets .sh-top .co{justify-content:flex-end;flex-direction:row-reverse;text-align:left;gap:12px}
+ #sheets .sh-top .co .co-text{text-align:left}
+ #sheets .sh-top .co img{height:48px;width:48px}
+ #sheets .sh-sum{flex-direction:column;gap:10px;padding:10px 0}
+ #sheets .sh-sum>div{border-right:none;border-bottom:1.5px solid #b9c2cb;padding:0 2px 10px}
+ #sheets .sh-sum>div:last-child{border-bottom:none;padding-bottom:0}
+ #sheets .sh-sum p{white-space:normal}
+ #sheets .sheet .tblwrap{position:relative;margin:0 -12px;padding:0 12px}
+ #sheets .sheet .tblwrap table{min-width:600px}
+ .shbar b{flex-basis:100%}
+ .btns button,.shbar button{flex:1 1 auto}
+}
 @media (prefers-color-scheme:light){:root:not([data-theme="light"]){}}
 </style></head>
 <body>
@@ -337,7 +356,7 @@ Trailer Charge | 7 days | 300</textarea></div></div>
 </div>
 
 <script>
-var APP_VERSION='2.1',APP_DATE='2026-11-12';   // <-- har yangilanishda o'zgartiring
+var APP_VERSION='2.1.1',APP_DATE='2026-11-12';   // <-- har yangilanishda o'zgartiring
 var KEY='fl_stmt_v1', S={co:{},drivers:[],stmts:[],ded:''}, TRIPS=[], VIEW='build';
 function money(n){return '$'+(Math.round((n||0)*100)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function esc(s){return (s==null?'':''+s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -901,9 +920,11 @@ function renderLoans(){var el=document.getElementById('lnbody');if(!el)return;
   ||'<tr><td colspan="8" class="note">Ҳозирча йўқ.</td></tr>';}
 
 /* ---------- print: har statement alohida PDF ---------- */
-var PQ=null;
+var PQ=null,IS_WV=/; wv\)|\bwv\b.*Chrome|Version\/[\d.]+ Chrome\/[\d.]+ Mobile/i.test(navigator.userAgent)&&/Android/i.test(navigator.userAgent);
 function setSkip(keep){[].forEach.call(document.querySelectorAll('#sheets .shwrap'),function(w){w.classList.toggle('skip',keep!=null&&keep.indexOf(+w.dataset.i)<0);});}
 function printEach(idx){if(!SHOWN||!SHOWN.length)return;var q=idx?idx.slice():SHOWN.map(function(x,i){return i;});
+ if(IS_WV){logTo('shLog','ℹ Android ilovada (WebView) Print ishlamaydi — PDF fayl yaratilmoqda.',true);
+  return pdfList(q.map(function(i){return SHOWN[i];}),'shLog');}
  function next(){if(!q.length){PQ=null;setSkip(null);return;}var i=q.shift();setSkip([i]);PQ=next;setTimeout(function(){window.print();},80);}
  next();}
 window.addEventListener('afterprint',function(){if(PQ){var f=PQ;PQ=null;setTimeout(f,500);}});
