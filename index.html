@@ -165,7 +165,7 @@ td .sm,button.sm{padding:4px 9px;font-size:11.5px}
 </style></head>
 <body>
 <div class="wrap">
-<div class="top noprint"><div><h1>Settlement Statement Builder</h1><div class="sub" id="coTag">SET UP YOUR COMPANY IN SETTINGS</div></div>
+<div class="top noprint"><div><h1>Settlement Statement Builder <span id="verTag" class="tag" style="font-size:11px;vertical-align:middle" title="App version"></span></h1><div class="sub" id="coTag">SET UP YOUR COMPANY IN SETTINGS</div></div>
 <div class="btns"><button onclick="backup()">Backup JSON</button><button onclick="document.getElementById('imp').click()">Restore</button><input id="imp" type="file" accept=".json" style="display:none" onchange="restore(this)"></div></div>
 
 <div class="tabs noprint">
@@ -337,6 +337,7 @@ Trailer Charge | 7 days | 300</textarea></div></div>
 </div>
 
 <script>
+var APP_VERSION='2.0',APP_DATE='2026-11-11';   // <-- har yangilanishda o'zgartiring
 var KEY='fl_stmt_v1', S={co:{},drivers:[],stmts:[],ded:''}, TRIPS=[], VIEW='build';
 function money(n){return '$'+(Math.round((n||0)*100)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function esc(s){return (s==null?'':''+s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -739,7 +740,7 @@ function delStmt(id){var s=S.stmts.filter(function(x){return x.id===id;})[0];if(
  sheetsDelete([s]);
  S.stmts=S.stmts.filter(function(s){return s.id!==id;});save();renderHist();renderDrivers();autoBackup();}
 /* ---------- backup ---------- */
-function backup(){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,2)],{type:'application/json'}));
+function backup(){S.appVersion=APP_VERSION;var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,2)],{type:'application/json'}));
  a.download='statements-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();
  S.lastBackup=new Date().toISOString();save();checkBackup();}
 function restore(inp){var f=inp.files[0];if(!f)return;var r=new FileReader();
@@ -1103,4 +1104,7 @@ function reconcile(){var raw=document.getElementById('rc-raw').value,out=documen
 load();fillSet();fillG();fillDriverSelects();
 document.getElementById('b-ded').value=S.ded||document.getElementById('c-ded').value;
 typeChg();calc();renderDrivers();renderHist();checkBackup();
-</script><div id="pdfStage"></div></body></html>
+</script><div id="pdfStage"></div>
+<div class="noprint" id="verFoot" style="text-align:center;color:var(--dim);font-family:var(--mono);font-size:11px;margin-top:24px"></div>
+<script>document.getElementById('verTag').textContent='v'+APP_VERSION;document.getElementById('verFoot').textContent='Settlement Statement Builder · v'+APP_VERSION+' · '+APP_DATE;</script>
+</body></html>
