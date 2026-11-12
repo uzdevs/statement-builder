@@ -290,8 +290,8 @@ Also accepts simple lines:  LOADID | Origin | Destination | Miles | Rate"></text
   <div id="rpYear"></div>
  </div>
  <div class="card"><h2>Amazon Relay payment check</h2>
-  <div class="note" style="margin-bottom:8px">Relay'дан келган тўлов (payment / remittance) ҳисоботини шу ерга қўйинг (CSV ёки нусха). Ҳар бир load ID statement'лардаги trip билан солиштирилади.</div>
-  <textarea id="rc-raw" placeholder="113K4CTC4  ...  $3,914.00&#10;1116YX1LF, 635.00"></textarea>
+  <div class="note" style="margin-bottom:8px">Amazon Relay'даги тўлов жадвалини (payment details) шу ерга қўйинг. Ҳар бир load/tour statement'лардаги trip билан солиштирилади: Amazon тўлаган, лекин statement'да йўқ load; statement'да бор, лекин Amazon тўламаган load; суммаси фарқ қиладиган load. Сана оралиғи бўш бўлса, ҳафта Amazon саналаридан ўзи аниқланади.</div>
+  <textarea id="rc-raw" placeholder="Relay → Payments → тўловни очинг → жадвални (Block ID, Trip ID, Load ID, ... Gross Pay ...) сарлавҳаси билан бирга белгилаб Ctrl+C → шу ерга Ctrl+V"></textarea>
   <div class="row" style="margin-top:8px"><div class="f" style="max-width:180px"><label>Statements from</label><input id="rc-from" type="date"></div><div class="f" style="max-width:180px"><label>to</label><input id="rc-to" type="date"></div>
   <div class="f" style="align-self:flex-end"><button class="pri" onclick="reconcile()">Compare</button></div></div>
   <div id="rcOut"></div>
@@ -337,7 +337,7 @@ Trailer Charge | 7 days | 300</textarea></div></div>
 </div>
 
 <script>
-var APP_VERSION='2.0.1',APP_DATE='2026-11-11';   // <-- har yangilanishda o'zgartiring
+var APP_VERSION='2.1',APP_DATE='2026-11-12';   // <-- har yangilanishda o'zgartiring
 var KEY='fl_stmt_v1', S={co:{},drivers:[],stmts:[],ded:''}, TRIPS=[], VIEW='build';
 function money(n){return '$'+(Math.round((n||0)*100)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function esc(s){return (s==null?'':''+s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -632,7 +632,8 @@ function saveDraft(){
  var en=document.getElementById('editNote');if(en)en.style.display='none';
  DRAFT.save=false;DRAFT.saved=true;showSheets(DRAFT.list,false,true);
  autoBackup();
- alert('Statement(s) saqlandi ✔');}
+ alert('Statement(s) saqlandi ✔');
+ if(RC_RETURN){RC_RETURN=false;go('rep');reconcile();var o=document.getElementById('rcOut');if(o)o.scrollIntoView();}}
 /* ---------- render sheet ---------- */
 function showSheets(list,isPrev,keep){var sy=window.pageYOffset||0;SHOWN=list;SHOWN_PREV=!!isPrev;
  document.getElementById('sheets').innerHTML=list.map(function(s,i){var d=drv(s.driverId)||{name:'Driver'};
@@ -1088,26 +1089,106 @@ function exportYearCSV(){var Y=val('rp-yr')||curYear(),R=yearRows(Y);
  var lines=[['Driver','Address','Statements','Opening earnings','Earnings (app)','YTD gross','Deductions','Opening payout','Payout (app)','YTD payout'].join(',')].concat(R.map(function(r){
   return [r.d.name,(r.d.a1||'')+' '+(r.d.a2||''),r.n,r2(r.og),r2(r.e),r2(r.og+r.e),r2(r.dd),r2(r.op),r2(r.p),r2(r.op+r.p)].map(q).join(',');}));
  download(new Blob([lines.join('\n')],{type:'text/csv'}),'year-end-'+Y+'.csv');}
-function reconcile(){var raw=document.getElementById('rc-raw').value,out=document.getElementById('rcOut');if(!raw.trim())return alert('Тўлов ҳисоботини қўйинг.');
- var from=val('rc-from'),to=val('rc-to'),known={},exp={};
- allLive().forEach(function(s){s.trips.forEach(function(t){if(!t.id)return;var k=t.id.toUpperCase().trim();known[k]=1;
-  if((from&&s.start<from)||(to&&s.start>to))return;if(!exp[k])exp[k]={id:t.id,rate:t.rate||0,o:t.o,d:t.d,per:fmtP(s),st:t.st};});});
- var paid={},extra=[];
- raw.split(/\n/).forEach(function(line){var U=line.toUpperCase(),toks=U.match(/[A-Z0-9][A-Z0-9-]{5,14}/g)||[];
-  var am=(line.match(/-?\$?\s?\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|-?\$?\s?\d+\.\d{1,2}/g)||[]).map(function(x){return parseFloat(x.replace(/[$,\s]/g,''));}),
-   amt=am.length?am[am.length-1]:0,hit=toks.filter(function(t){return known[t];});
-  if(hit.length)hit.forEach(function(h){paid[h]=r2((paid[h]||0)+amt);});
-  else{var c=toks.filter(function(t){return /^(T-)?\d{2,4}[A-Z0-9]{5,9}$/.test(t)&&/[A-Z]/.test(t.replace(/^T-/,''));});if(c.length)extra.push({id:c[0],a:amt});}});
- var ok=[],diff=[],miss=[],E=0,P=0;
- Object.keys(exp).forEach(function(k){var t=exp[k];E+=t.rate;
-  if(paid[k]==null){if(t.rate>0)miss.push(t);return;}P+=paid[k];
-  if(Math.abs(paid[k]-t.rate)<0.01)ok.push(t);else diff.push({t:t,p:paid[k]});});
- function tbl(h,rows){return rows?'<div class="scroll"><table><thead><tr>'+h+'</tr></thead><tbody>'+rows+'</tbody></table></div>':'';}
- out.innerHTML='<div class="kpi" style="margin:12px 0"><div><span>Expected (statements)</span><b>'+money(E)+'</b></div><div><span>Paid (matched)</span><b>'+money(P)+'</b></div><div><span>✔ OK</span><b class="ok">'+ok.length+'</b></div><div><span>≠ Amount differs</span><b class="warn">'+diff.length+'</b></div><div><span>✘ Not in payment</span><b class="bad">'+miss.length+'</b></div><div><span>? Not in statements</span><b>'+extra.length+'</b></div></div>'+
-  (diff.length?'<h2 class="warn">Сумма фарқ қилади</h2>'+tbl('<th>Load</th><th>Period</th><th>Route</th><th class="n">Statement</th><th class="n">Paid</th><th class="n">Diff</th>',diff.map(function(x){return '<tr><td class="mono">'+esc(x.t.id)+'</td><td>'+x.t.per+'</td><td>'+esc(x.t.o)+' → '+esc(x.t.d)+'</td><td class="n">'+money(x.t.rate)+'</td><td class="n">'+money(x.p)+'</td><td class="n '+(x.p<x.t.rate?'bad':'ok')+'">'+money(x.p-x.t.rate)+'</td></tr>';}).join('')):'')+
-  (miss.length?'<h2 class="bad" style="margin-top:14px">Тўловда йўқ (тўланмаган бўлиши мумкин)</h2>'+tbl('<th>Load</th><th>Period</th><th>Route</th><th class="n">Rate</th>',miss.map(function(t){return '<tr><td class="mono">'+esc(t.id)+'</td><td>'+t.per+'</td><td>'+esc(t.o)+' → '+esc(t.d)+'</td><td class="n">'+money(t.rate)+'</td></tr>';}).join('')):'')+
-  (extra.length?'<h2 style="margin-top:14px">Тўловда бор, лекин statement\'да йўқ</h2>'+tbl('<th>Load</th><th class="n">Paid</th>',extra.map(function(x){return '<tr><td class="mono">'+esc(x.id)+'</td><td class="n">'+money(x.a)+'</td></tr>';}).join('')):'')+
-  '<div class="note" style="margin-top:6px">Бир қаторда бир нечта сумма бўлса, охиргиси (одатда total) олинади. Сана оралиғи бўш бўлса — барча statement\'лар.</div>';}
+/* ---------- Amazon Relay payment check (v2.1) ----------
+   Relay → Payments → payment details jadvalini nusxalab qo'yiladi.
+   Tour (T-...) = tour qatori + uning barcha load'lari yig'indisi. */
+var RC=null,RC_RETURN=false;
+var MON={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+function rcMoney(v){v=String(v||'').trim();if(!v||v==='-')return 0;var n=parseFloat(v.replace(/[$,\s]/g,''));return isNaN(n)?0:n;}
+function rcDates(txt){var m=/([A-Z][a-z]{2})\s+(\d{1,2})\s*-\s*([A-Z][a-z]{2})\s+(\d{1,2}),\s*(\d{4})/.exec(txt||'');if(!m)return null;
+ var ey=+m[5],em=MON[m[3]],sm=MON[m[1]],sy=sm>em?ey-1:ey;function f(y,mo,d){return y+'-'+('0'+mo).slice(-2)+'-'+('0'+d).slice(-2);}
+ return {s:f(sy,sm,+m[2]),e:f(ey,em,+m[4])};}
+function parseRelay(raw){
+ var L=raw.replace(/\r/g,'').split('\n'),rows=[],idRx=/^(?:T-)?[0-9][A-Z0-9]{6,11}$/;
+ for(var i=0;i<L.length;i++){var line=L[i];if(!/\b(LOAD|TOUR|BLOCK)\s*-\s*[A-Z]+/.test(line))continue;
+  var c=line.split('\t').map(function(x){return x.trim();});
+  var ti=c.findIndex(function(x){return /^(LOAD|TOUR|BLOCK)\s*-\s*[A-Z]+/.test(x);});if(ti<0)continue;
+  var ids=c.slice(0,ti).filter(function(x){return idRx.test(x);});if(!ids.length)continue;
+  // values: rest of this line + following lines until 7 money/dash values collected
+  var vals=[],rest=c.slice(ti+1),meta=[];
+  rest.forEach(function(x){if(x)meta.push(x);});
+  var j=i+1;while(j<L.length&&vals.length<7){var t=L[j].trim();
+   if(/\b(LOAD|TOUR|BLOCK)\s*-\s*[A-Z]+/.test(t)&&j>i+1&&/\t/.test(L[j])&&!/^(Load Board|Spot|Contract)/.test(t))break;
+   if(/^-?\$?[\d,]+(\.\d+)?$|^-$/.test(t))vals.push(t);else if(t&&vals.length===7)break;j++;}
+  var tail=[];for(var q=j;q<Math.min(L.length,j+4);q++){if(/\b(SOLO|TEAM)\b/.test(L[q])){tail=L[q].split('\t').map(function(x){return x.trim();});break;}}
+  var type=c[ti].replace(/\s+/g,' '),dt=null,route='',mi=0;
+  meta.forEach(function(x){var d=rcDates(x);if(d){dt=d;return;}if(/->/.test(x)){route=x;return;}var m=/^([\d,.]+)\s*MI$/i.exec(x);if(m)mi=parseFloat(m[1].replace(/,/g,''));});
+  var tour=/^T-/.test(ids[0])?ids[0]:null,load=tour?(ids[1]||null):ids[0];
+  rows.push({tour:tour,load:load,isTourRow:!!tour&&!ids[1],type:type,dt:dt,route:route,mi:mi,
+   gross:rcMoney(vals[0]),base:rcMoney(vals[1]),fuel:rcMoney(vals[2]),tolls:rcMoney(vals[3]),tonu:rcMoney(vals[4]),det:rcMoney(vals[5]),oth:rcMoney(vals[6]),
+   op:(tail.filter(function(x){return /^(SOLO|TEAM)$/i.test(x);})[0]||'')});
+  i=j-1;}
+ return rows;}
+function reconcile(){var raw=document.getElementById('rc-raw').value,out=document.getElementById('rcOut');
+ if(!raw.trim())return alert('Amazon payment details жадвалини қўйинг.');
+ var rows=parseRelay(raw);
+ if(!rows.length){out.innerHTML='<div class="banner red" style="margin-top:12px">Amazon жадвали танилмади. Relay → <b>Payments</b> → тўлов ичидаги жадвални (Block ID, Trip ID, Load ID, Gross Pay…) <b>сарлавҳаси билан бирга</b> белгилаб нусхаланг ва шу ерга қўйинг. Фақат умумий сумма ($41,882.17) етарли эмас.</div>';return;}
+ // Amazon units: tour (aggregated) yoki alohida load
+ var U={},alias={};
+ rows.forEach(function(r){var k=(r.tour||r.load).toUpperCase();
+  if(!U[k])U[k]={id:r.tour||r.load,amz:0,rows:[],dt:null,route:'',mi:0,op:'',type:''};var u=U[k];u.amz+=r.gross;u.rows.push(r);
+  if(r.dt){if(!u.dt)u.dt={s:r.dt.s,e:r.dt.e};else{if(r.dt.s<u.dt.s)u.dt.s=r.dt.s;if(r.dt.e>u.dt.e)u.dt.e=r.dt.e;}}
+  if(!r.isTourRow){u.mi+=r.mi;u.route=u.route?u.route+' · '+r.route:r.route;if(r.op)u.op=r.op;}
+  if(r.isTourRow||!r.tour)u.type=r.type;
+  if(r.tour&&r.load)alias[r.load.toUpperCase()]=k;});
+ // statement haftalari: qo'lda tanlangan oraliq yoki Amazon sanalari tushgan haftalar
+ var from=val('rc-from'),to=val('rc-to'),weeks=weekList(),sel={};
+ if(from||to)weeks.forEach(function(w){if((!from||w.start>=from)&&(!to||w.start<=to))sel[w.start]=1;});
+ else Object.keys(U).forEach(function(k){var e=U[k].dt&&U[k].dt.e;if(!e)return;weeks.forEach(function(w){if(e>=w.start&&e<=w.end)sel[w.start]=1;});});
+ var selW=weeks.filter(function(w){return sel[w.start];});
+ // statement trip'lari (team bo'lsa bir marta), unit bo'yicha
+ var ST={},other={};
+ allLive().forEach(function(s){var inSel=!!sel[s.start];s.trips.forEach(function(t){if(!t.id)return;var id=t.id.toUpperCase().trim(),k=alias[id]||id;
+  var box=inSel?ST:other;if(!box[k])box[k]={trips:{},stm:[],sum:0};var b=box[k];
+  if(!b.trips[id]){b.trips[id]=t;b.sum+=(t.rate||0);}if(b.stm.indexOf(s)<0)b.stm.push(s);});});
+ var ok=[],diff=[],miss=[],elsewhere=[],extra=[],A=0,S2=0;
+ Object.keys(U).forEach(function(k){var u=U[k];A+=u.amz;
+  if(ST[k]){S2+=ST[k].sum;if(Math.abs(ST[k].sum-u.amz)<0.01)ok.push({k:k,u:u,s:ST[k]});else diff.push({k:k,u:u,s:ST[k]});}
+  else if(other[k])elsewhere.push({k:k,u:u,s:other[k]});
+  else miss.push({k:k,u:u});});
+ Object.keys(ST).forEach(function(k){if(U[k])return;var sum=ST[k].sum;if(sum<=0)return;S2+=sum;extra.push({k:k,s:ST[k]});});
+ RC={miss:miss,extra:extra,diff:diff,weeks:selW};
+ var stmOpts=selW.length?weekStmtOptions(selW):'';
+ function who(s){return s.stm.map(function(x){return esc(dname(x));}).join(', ');}
+ function wk(s){return s.stm.length?fmtP(s.stm[0]):'';}
+ function tbl(h,rows){return '<div class="scroll"><table><thead><tr>'+h+'</tr></thead><tbody>'+rows+'</tbody></table></div>';}
+ var allOk=!miss.length&&!extra.length&&!diff.length&&!elsewhere.length;
+ var h='<div class="kpi" style="margin:12px 0"><div><span>Amazon тўлади</span><b>'+money(A)+'</b></div><div><span>Statement\'ларда</span><b>'+money(S2)+'</b></div><div><span>Фарқ</span><b class="'+(Math.abs(A-S2)<0.01?'ok':'bad')+'">'+money(A-S2)+'</b></div>'+
+  '<div><span>✔ Тўғри</span><b class="ok">'+ok.length+'</b></div><div><span>≠ Сумма фарқ</span><b class="warn">'+diff.length+'</b></div><div><span>✘ Statement\'да йўқ</span><b class="bad">'+miss.length+'</b></div><div><span>✘ Amazon тўламаган</span><b class="bad">'+extra.length+'</b></div></div>'+
+  '<div class="note">Солиштирилган statement ҳафталари: <b>'+(selW.map(function(w){return fmtP(w);}).join(', ')||'— топилмади (сана оралиғини танланг)')+'</b> · Amazon\'да '+rows.length+' қатор, '+Object.keys(U).length+' та trip/tour.</div>';
+ if(allOk&&selW.length)h+='<div class="banner" style="border-color:var(--grn);color:var(--grn);margin-top:12px;font-size:15px">✔ Ҳаммаси тўғри! Amazon тўлови statement\'лар билан тўлиқ мос келди ('+money(A)+').<br>Statement\'ларни driver\'ларга юборишингиз мумкин. '+
+  '<button class="pri" style="margin-left:8px" onclick="rcGoSend()">📤 Driver\'ларга юбориш</button></div>';
+ if(miss.length)h+='<h2 class="bad" style="margin-top:16px">✘ Amazon пул тўлаган, лекин statement\'да йўқ — қайси driver қилганини топиб қўшинг</h2>'+
+  tbl('<th>Load / Tour</th><th>Sana</th><th>Route</th><th class="n">Miles</th><th>Type</th><th class="n">Amazon</th><th>Қайси statement\'га қўшиш</th>',
+  miss.map(function(x,i){var u=x.u;return '<tr><td class="mono">'+esc(u.id)+(u.rows.length>1?'<div class="note">'+u.rows.length+' qator (tour)</div>':'')+'</td><td>'+(u.dt?esc(u.dt.s.slice(5)+' → '+u.dt.e.slice(5)):'')+'</td><td>'+esc(u.route)+'</td><td class="n">'+(u.mi?u.mi.toFixed(0):'')+'</td><td>'+esc(u.op)+'</td><td class="n">'+money(u.amz)+'</td>'+
+   '<td style="white-space:nowrap">'+(stmOpts?'<select id="rcm-'+i+'" style="width:auto;padding:4px 6px;font-size:12px">'+stmOpts+'</select> <button class="sm pri" onclick="rcAdd('+i+')">➕ Қўшиш</button>':'<span class="note">Бу ҳафтада statement йўқ</span>')+'</td></tr>';}).join(''));
+ if(extra.length)h+='<h2 class="bad" style="margin-top:16px">✘ Statement\'да бор, лекин Amazon тўламаган — ортиқча бўлса ўчиринг</h2>'+
+  tbl('<th>Load</th><th>Driver(s)</th><th>Week</th><th class="n">Statement</th><th></th>',
+  extra.map(function(x,i){return '<tr><td class="mono">'+esc(Object.keys(x.s.trips).join(', '))+'</td><td>'+who(x.s)+'</td><td>'+wk(x.s)+'</td><td class="n">'+money(x.s.sum)+'</td><td><button class="sm dngr" onclick="rcRemove('+i+')">🗑 Statement\'дан олиб ташлаш</button></td></tr>';}).join(''));
+ if(diff.length)h+='<h2 class="warn" style="margin-top:16px">≠ Сумма фарқ қилади</h2>'+
+  tbl('<th>Load / Tour</th><th>Driver(s)</th><th class="n">Statement</th><th class="n">Amazon</th><th class="n">Фарқ</th><th></th>',
+  diff.map(function(x,i){var d=x.u.amz-x.s.sum;return '<tr><td class="mono">'+esc(x.u.id)+'</td><td>'+who(x.s)+'</td><td class="n">'+money(x.s.sum)+'</td><td class="n">'+money(x.u.amz)+'</td><td class="n '+(d<0?'bad':'ok')+'">'+(d>0?'+':'')+money(d)+'</td><td>'+(Object.keys(x.s.trips).length===1?'<button class="sm" onclick="rcFix('+i+')">✏️ Amazon суммасини қўйиш</button>':'')+'</td></tr>';}).join(''));
+ if(elsewhere.length)h+='<h2 style="margin-top:16px">ℹ Бошқа ҳафтанинг statement\'ида турибди</h2>'+
+  tbl('<th>Load / Tour</th><th>Driver(s)</th><th>Week</th><th class="n">Statement</th><th class="n">Amazon</th>',
+  elsewhere.map(function(x){return '<tr><td class="mono">'+esc(x.u.id)+'</td><td>'+who(x.s)+'</td><td>'+wk(x.s)+'</td><td class="n">'+money(x.s.sum)+'</td><td class="n">'+money(x.u.amz)+'</td></tr>';}).join(''));
+ if(ok.length)h+='<details style="margin-top:14px"><summary class="note" style="cursor:pointer">✔ Тўғри келганлар ('+ok.length+')</summary>'+
+  tbl('<th>Load / Tour</th><th>Driver(s)</th><th class="n">Сумма</th>',ok.map(function(x){return '<tr><td class="mono">'+esc(x.u.id)+'</td><td>'+who(x.s)+'</td><td class="n">'+money(x.u.amz)+'</td></tr>';}).join(''))+'</details>';
+ if(!allOk)h+='<div class="note" style="margin-top:10px">Тузатгандан кейин statement\'ни <b>Generate → Save</b> қилинг ва шу ерда яна <b>Compare</b> босинг. Ҳаммаси тўғри бўлганда «✔ Ҳаммаси тўғри» чиқади.</div>';
+ out.innerHTML=h;}
+function weekStmtOptions(W){var o='';W.forEach(function(w){weekStmts(w.start).forEach(function(s){o+='<option value="'+s.id+'">'+esc(dname(s))+' — '+fmtP(s)+'</option>';});});return o;}
+function rcGoSend(){var w=RC&&RC.weeks[0];go('hist');if(w){document.getElementById('wk-sel').value=w.start;renderWeekInfo();}window.scrollTo(0,0);}
+function rcAdd(i){var x=RC.miss[i],sid=val('rcm-'+i);if(!sid)return;RC_RETURN=true;var u=x.u;editStmt(sid);
+ var trip;var rt=(u.rows.filter(function(r){return !r.isTourRow;})[0]||u.rows[0]).route.split('->');
+ trip={id:u.id,o:(rt[0]||'').trim(),d:(rt.slice(-1)[0]||'').trim(),mi:Math.round(u.mi),rate:r2(u.amz),who:'team'};
+ if(u.rows.length>1){var r0=u.rows.filter(function(r){return !r.isTourRow;});trip.o=(r0[0]&&r0[0].route.split('->')[0])||trip.o;trip.d=(r0.length&&r0[r0.length-1].route.split('->').slice(-1)[0])||trip.d;}
+ TRIPS.push(trip);FORM_SAVED=false;calc();
+ var en=document.getElementById('editNote');en.textContent+=' ➕ '+u.id+' ('+money(u.amz)+') қўшилди — текшириб Generate → Save босинг.';}
+function rcRemove(i){var x=RC.extra[i],ids=Object.keys(x.s.trips);if(!confirm(ids.join(', ')+' — '+x.s.stm.map(dname).join(', ')+' statement\'идан олиб ташлансинми?'))return;RC_RETURN=true;
+ editStmt(x.s.stm[0].id);TRIPS=TRIPS.filter(function(t){return ids.indexOf((t.id||'').toUpperCase().trim())<0;});FORM_SAVED=false;calc();
+ document.getElementById('editNote').textContent+=' 🗑 '+ids.join(', ')+' олиб ташланди — Generate → Save босинг.';}
+function rcFix(i){var x=RC.diff[i],id=Object.keys(x.s.trips)[0];RC_RETURN=true;editStmt(x.s.stm[0].id);
+ TRIPS.forEach(function(t){if((t.id||'').toUpperCase().trim()===id)t.rate=r2(x.u.amz);});FORM_SAVED=false;calc();
+ document.getElementById('editNote').textContent+=' ✏️ '+x.u.id+' суммаси '+money(x.u.amz)+' қилинди — Generate → Save босинг.';}
 /* ---------- init ---------- */
 load();fillSet();fillG();fillDriverSelects();
 document.getElementById('b-ded').value=S.ded||document.getElementById('c-ded').value;
